@@ -3,7 +3,9 @@
 .gradle
 .venv
 repos/
-*.lock
+**.lock
+.workdir/
+**/file_conflicts
 
 # Compiled class file
 *.class
