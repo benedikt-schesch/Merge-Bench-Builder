@@ -99,15 +99,7 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[floa
 
 def strict_format_reward_func(completions, **kwargs) -> list[float]:
     """Reward function that checks if the completion has a specific format."""
-    pattern = r"^<think>\n.*?\n</think>\n<answer>\n.*?\n</answer>\n$"
-    responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(pattern, r) for r in responses]
-    return [0.5 if match else 0.0 for match in matches]
-
-
-def soft_format_reward_func(completions, **kwargs) -> list[float]:
-    """Reward function that checks if the completion has a specific format."""
-    pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
+    pattern = r"^.*?\n</think>\n<answer>\n.*?\n</answer>\n$"
     responses = [completion[0]["content"] for completion in completions]
     matches = [re.match(pattern, r) for r in responses]
     return [0.5 if match else 0.0 for match in matches]
@@ -173,7 +165,6 @@ if __name__ == "__main__":
         reward_funcs=[
             java_markdown_weak_reward_func,
             java_markdown_strong_reward_func,
-            soft_format_reward_func,
             strict_format_reward_func,
             correctness_reward_func,
         ],
