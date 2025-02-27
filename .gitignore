@@ -9,7 +9,9 @@ gil_free_env/
 **/file_conflicts
 **/conflict_blocks
 **/conflict_files
+**/filtered_dataset
 **/dataset
+outputs/
 wandb/
 unsloth_compiled_cache/
 debug.txt
