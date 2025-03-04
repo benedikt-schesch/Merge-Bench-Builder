@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,square/moshi,refs/heads/master,c8cda23160b72c1a247b13c48ea74c321313d156,bec370d87b8033af9ff0734af44cfc8b37e4aca3,db892df544b2a10f23420e1be063e2d819779258,a parent is the base
 1,square/moshi,refs/heads/master,bec370d87b8033af9ff0734af44cfc8b37e4aca3,892a4d9ca59cf01547f006f96c67a854a82a235b,712006352a2cde35f25e060f3d342fe3c59249bf,a parent is the base
 2,square/moshi,refs/heads/master,e80149c919705481bc21230a5b0308b55d000098,7f36bdff42fadb041722d2c8f5292d5e01cf84cf,b9225882b49e36c4bec1eee954050426d1d00288,a parent is the base

@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,twitter/netty-http2,refs/heads/master,e8df896db61045b118f3423196c41c11c162b1c0,739e08e19ec310afaac9f7b4a76c3958ae262d1f,4d0dea639d50f212acfe130be610a41d79bf7d0d,a parent is the base
 1,twitter/netty-http2,refs/heads/master,739e08e19ec310afaac9f7b4a76c3958ae262d1f,1e1686ea8e77c86bdebc8e31ddff6528cd0ceaac,03e25d0c708cc60a8b327f136880b433e37c8fc1,a parent is the base
 2,twitter/netty-http2,refs/heads/master,79b81ee3e74265ed139a055376f32549de51da9d,30532ff923999c31fb645c7f55d89d7d87a8e1d2,b373cdb0046a8b193d1c8b4b6486f851a731d7e7,a parent is the base

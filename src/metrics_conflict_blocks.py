@@ -37,12 +37,13 @@ from typing import List, Optional, Tuple
 import shutil
 import pandas as pd
 from transformers import AutoTokenizer
-
-# Import the same constants used by your other script
+from loguru import logger
+from rich.progress import track
+from build_dataset import build_query
 from variables import MODEL, MAX_PROMPT_LENGTH
 
-# build_query is used to prepare the text for token counting
-from build_dataset import build_query
+
+logger.add("run.log", backtrace=True, diagnose=True)
 
 
 def get_token_count(tokenizer, conflict_query: List[str]) -> int:
@@ -101,7 +102,7 @@ def split_conflict_block(
       [optional base marker: "|||||||", followed by base lines]
       =======
       (right parent lines)
-      >>>>>>>
+      >>>>>>>>
 
     If a base marker is not found, base is returned as None.
     """
@@ -134,17 +135,15 @@ def split_conflict_block(
     return left_parent, right_parent, None if not encountered_base_marker else base
 
 
-def is_sublist(sub: List[str], parent: List[str]) -> bool:
+def functional_equality(left: List[str], right: List[str]) -> bool:
     """
-    Checks if the list 'sub' is a contiguous sublist of 'parent'.
-    Returns True if it is, otherwise False.
+    Check if two lists of strings are functionally equivalent.
     """
-    if not sub:
-        return True
-    for i in range(len(parent) - len(sub) + 1):
-        if parent[i : i + len(sub)] == sub:
-            return True
-    return False
+
+    def normalize(lst: List[str]) -> str:
+        return "".join(lst).replace(" ", "").replace("\t", "")
+
+    return normalize(left) == normalize(right)
 
 
 def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-locals
@@ -156,13 +155,13 @@ def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-
     )
     parser.add_argument(
         "--input_dir",
-        default="merges/repos_small/conflict_blocks",
+        default="merges/repos_50/conflict_blocks",
         help="Directory containing <basename><n>.conflict and "
         "<basename><n>.resolved_conflict files",
     )
     parser.add_argument(
         "--csv_out",
-        default="merges/repos_small/conflict_metrics.csv",
+        default="merges/repos_50/conflict_metrics.csv",
         help="Path to the output CSV file.",
     )
     parser.add_argument(
@@ -175,7 +174,7 @@ def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-
     parser.add_argument(
         "--filtered_output_dir",
         type=str,
-        default="merges/repos_small/filtered_conflicts",
+        default="merges/repos_50/filtered_conflicts",
         help="If specified, copy filtered .conflict/.resolved_conflict pairs to this directory.",
     )
     parser.add_argument(
@@ -187,28 +186,29 @@ def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-
 
     input_dir = Path(args.input_dir)
     if not input_dir.is_dir():
-        sys.stderr.write(f"ERROR: input_dir '{input_dir}' is not a directory.\n")
+        logger.error(f"ERROR: input_dir '{input_dir}' is not a directory.")
         sys.exit(1)
 
     # Collect all *.conflict files; we'll match each with a corresponding *.resolved_conflict
     conflict_files = sorted(input_dir.glob("*.conflict"))
     if not conflict_files:
-        print("No '.conflict' files found.")
+        logger.info("No '.conflict' files found.")
         sys.exit(0)
 
     # Create output directory if needed
-    if args.filtered_output_dir:
-        Path(args.filtered_output_dir).mkdir(parents=True, exist_ok=True)
+    output_dir = Path(args.filtered_output_dir)
+    shutil.rmtree(output_dir, ignore_errors=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Prepare a list for metric rows
     rows = []
     tokenizer = AutoTokenizer.from_pretrained(MODEL, use_fast=True)
 
-    for conflict_path in conflict_files:
+    for conflict_path in track(conflict_files):
         # For each .conflict, find the corresponding .resolved_conflict file
         resolved_path = conflict_path.with_suffix(".resolved_conflict")
         if not resolved_path.exists():
-            print(f"No matching .resolved_conflict for {conflict_path}. Skipped.")
+            logger.info(f"No matching .resolved_conflict for {conflict_path}. Skipped.")
             continue
 
         # Use the filename (minus extension) as the conflict identifier
@@ -224,7 +224,7 @@ def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-
                 conflict_lines
             )
         except ValueError as e:
-            print(f"{e} in {conflict_path}. Skipped.")
+            logger.info(f"{e} in {conflict_path}. Skipped.")
             continue
 
         # Further split the conflict block into left_parent, right_parent, and base (if available)
@@ -238,8 +238,11 @@ def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-
             resolution = resolved_lines[len(before_ctx) : -len(after_ctx)]
 
         # Check if the resolution is fully contained in either left_parent or right_parent.
-        res_in_left = is_sublist(resolution, left_parent)
-        res_in_right = is_sublist(resolution, right_parent)
+        res_in_left = functional_equality(resolution, left_parent)
+        res_in_right = functional_equality(resolution, right_parent)
+
+        # Check if the resolution is incoherent (i.e., it is larger than the conflict block)
+        incoherent_resolution_size = len(conflict_lines) + 2 < len(resolved_lines)
 
         # Compute all metrics
         metrics = {
@@ -247,12 +250,14 @@ def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-
             "context_before_lines": len(before_ctx),
             "conflict_lines": len(conflict_block),
             "context_after_lines": len(after_ctx),
+            "full_resolution_lines": len(resolved_lines),
             "resolution_lines": len(resolution),
             "parent1_lines": len(left_parent),
             "parent2_lines": len(right_parent),
             "base_lines": len(base) if base is not None else -1,
             "num_tokens_query": get_token_count(tokenizer, conflict_lines),
             "resolution_in_left_or_right": (res_in_left or res_in_right),
+            "incoherent_resolution_size": incoherent_resolution_size,
         }
 
         # Decide if this conflict should be selected based on filtering rules
@@ -272,16 +277,19 @@ def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-
         if metrics["num_tokens_query"] > MAX_PROMPT_LENGTH:
             selected = False
 
+        if metrics["incoherent_resolution_size"]:
+            selected = False
+
         # Prepare row data
         row_data = {"conflict_id": identifier}
         row_data.update(metrics)  # type: ignore
-        row_data["selected"] = selected
+        row_data["selected"] = selected  # type: ignore
         rows.append(row_data)
 
         # If selected and an output folder was provided, copy the files
-        if selected and args.filtered_output_dir:
-            out_conflict = Path(args.filtered_output_dir) / conflict_path.name
-            out_resolved = Path(args.filtered_output_dir) / resolved_path.name
+        if selected:
+            out_conflict = output_dir / conflict_path.name
+            out_resolved = output_dir / resolved_path.name
             shutil.copy2(conflict_path, out_conflict)
             shutil.copy2(resolved_path, out_resolved)
 
@@ -289,11 +297,9 @@ def main():  # pylint: disable=too-many-branches, too-many-statements, too-many-
     df = pd.DataFrame(rows)
     df.to_csv(args.csv_out, index=False, encoding="utf-8")
 
-    print(f"Metrics (with 'selected' column) have been written to {args.csv_out}")
-    if args.filtered_output_dir:
-        print(f"Selected conflicts copied to {args.filtered_output_dir}")
-    else:
-        print("No output directory specified; nothing copied.")
+    logger.info(f"Metrics (with 'selected' column) have been written to {args.csv_out}")
+    logger.info(f"Selected conflicts copied to {output_dir}")
+    logger.info(f"Number of selected conflicts: {df['selected'].sum()}")
 
 
 if __name__ == "__main__":

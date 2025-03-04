@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,asciidoctor/asciidoctor-gradle-examples,refs/heads/master,620acf231f08c26939fc4520ca89d1428f70b20e,239531688b5560554ab233b6b83e62b01be3aad1,4475c2d213c0b8a5cb69b50282be5a05e23dab77,a parent is the base
 1,asciidoctor/asciidoctor-gradle-examples,refs/heads/master,239531688b5560554ab233b6b83e62b01be3aad1,c46609256aba6f2c5cdce8c5b74630ae29d0f216,85f3b5d7b710808288e9b37a6e1cc22f57a4f8aa,
 2,asciidoctor/asciidoctor-gradle-examples,refs/heads/master,c46609256aba6f2c5cdce8c5b74630ae29d0f216,b71d0b87e7bd8826407c4d309ea8e351cea8c7de,65861a98aae9bbbaf33d86eb7f327204f128177a,a parent is the base

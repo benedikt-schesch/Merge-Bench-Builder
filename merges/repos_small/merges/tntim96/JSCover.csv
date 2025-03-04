@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,tntim96/JSCover,refs/heads/master,e39e553da29ca3fcbb3d7eb06282eb58b78b85c7,a4292a9c149820e9101613291bff68fc240226d7,d90d5a006a58af005834ebfe553aae560f0fe2c7,a parent is the base
 1,tntim96/JSCover,refs/heads/master,31361bbe2317967a9c47cfc4437e2ce706f79056,fe64f8c1071a356027e49247fd506edc23566c4d,ab9b573de54d1014b5d9822adc9d9e5cf43ba8c0,
 2,tntim96/JSCover,refs/heads/master,fe64f8c1071a356027e49247fd506edc23566c4d,b9ead12fd4a28a9fd7074ad4e97128943b072828,f5cb9ece38b7bd9ae97d7a55490476b84a2336df,a parent is the base

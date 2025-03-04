@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,jcricket/gwt-syncproxy,refs/remotes/origin/develop,c1e8ea1a3343c894d453715bfa3eb01b1ab6a7e6,d83d1cc6726c66cd52ac699b64065f578f857f0b,851a05ef4eb0ed3e24747020c5fe41a8dfb27d96,a parent is the base
 1,jcricket/gwt-syncproxy,refs/remotes/origin/develop,8a92a78c2c2283b6e33e9fb03da3ca1a288d3983,dbe796892d3f560a8496d5afcf0676f0f6958178,d83d1cc6726c66cd52ac699b64065f578f857f0b,
 2,jcricket/gwt-syncproxy,refs/remotes/origin/develop,d83d1cc6726c66cd52ac699b64065f578f857f0b,35f51b6635ffc885e7f0b3955f1d2b6d59ab293e,136e771c71aaf5098e2090921e25c8daa021ae25,

@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,jmanico/owasp-java-encoder,refs/heads/main,58bd93dc7e9511500cebd50b3cbf8523d6720a7d,ad296f224f1ad3c30cad46c64d8b45ec26e74fcd,351e999dcfe4fee38c4aa4bc584d15d3de2ccbb6,a parent is the base
 1,jmanico/owasp-java-encoder,refs/heads/main,6309c0ad5d5a339f41dfa94384930f630d46bc4a,2b68323544370965c992c6c420ec5659c16f0a3e,90717bd9e4372a13c9b40cbb707121de6eb4fa92,
 2,jmanico/owasp-java-encoder,refs/heads/main,2b68323544370965c992c6c420ec5659c16f0a3e,8524da699b00fc8deff23dd792bbb4d233399808,eeb217bb1ccca5a6e9c8dca582499535a032d8a2,a parent is the base

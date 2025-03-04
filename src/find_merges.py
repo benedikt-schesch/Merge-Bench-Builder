@@ -7,36 +7,26 @@ Usage:
 This script finds 2-parent merge commits in a set of GitHub repositories and outputs them
 to one consolidated CSV file.
 
-**Workflow**:
-1. Parse command line arguments (uses argparse).
-2. Read a CSV (via pandas) of GitHub repositories
-        (column named "repository" with values "org/repo").
-3. For each repository:
-   - Clone or reuse a local copy in a user-specified or environment-driven cache path.
-   - Fetch pull-request branches.
-   - Enumerate all branches; find merge commits with exactly 2 parents.
-   - Compute a "merge base" commit:
-       - If none is found, mark the merge as "two initial commits".
-       - If the base is identical to one of the parents, mark "a parent is the base".
-   - Return merge rows in CSV format.
-4. Write all rows to a single output CSV file.
-5. If the --delete flag is set, remove the local clone after processing.
-
-**Parallelization**:
-- Processes up to n_cpus repositories in parallel (can be changed via --threads).
-
-**Authentication**:
-- Uses a GitHub token for cloning; see below for how credentials are read.
+**Key change**: If `MAX_NUM_MERGES` is increased and a partial CSV result is already on disk,
+we simply collect additional merges until we reach the new limit, without discarding previously
+collected merges.
 """
 
 import os
 import sys
 from pathlib import Path
+import hashlib
 from typing import List, Optional, Set, Dict
 
 import pandas as pd
 from git import Commit, GitCommandError, Repo
 from loguru import logger
+
+from variables import MAX_NUM_MERGES
+
+# Create a cache folder for merge results
+CACHE_DIR = Path("merge_cache/merges")
+CACHE_DIR.mkdir(exist_ok=True, parents=True)
 
 
 def read_github_credentials() -> tuple[str, str]:
@@ -46,13 +36,6 @@ def read_github_credentials() -> tuple[str, str]:
             (first line = user, second line = token).
       2) Otherwise uses environment variable GITHUB_TOKEN (with user="Bearer").
       3) Exits if neither is available.
-
-    Raises:
-        RuntimeError: If neither ~/.github-personal-access-token nor GITHUB_TOKEN is available.
-
-    Returns:
-        tuple[str, str]
-            A tuple (username, token) for GitHub authentication.
     """
     token_file = Path.home() / ".github-personal-access-token"
     env_token = os.getenv("GITHUB_TOKEN")
@@ -69,10 +52,6 @@ def read_github_credentials() -> tuple[str, str]:
 def fetch_pr_branches(repo: Repo) -> None:
     """
     Fetch pull request branches (refs/pull/*/head) into local references.
-
-    Arguments:
-        repo: Repo
-            A GitPython Repo object.
     """
     try:
         repo.remotes.origin.fetch(refspec="refs/pull/*/head:refs/remotes/origin/pull/*")
@@ -86,21 +65,6 @@ def get_merge_base(repo: Repo, c1: Commit, c2: Commit) -> Optional[Commit]:
     Compute the nearest common ancestor (merge base) of two commits.
     If no common ancestor exists, return None.
     If the merge base is one of the parents, that is noted separately.
-
-    Arguments:
-        repo: Repo
-            A GitPython Repo object.
-        c1: Commit
-            The first commit.
-        c2: Commit
-            The second commit.
-
-    Raises:
-        RuntimeError: If the same commit is passed twice.
-
-    Returns:
-        Optional[Commit]
-            The merge base commit or None if no common ancestor.
     """
     if c1.hexsha == c2.hexsha:
         raise RuntimeError(f"Same commit passed twice: {c1.hexsha}")
@@ -124,34 +88,56 @@ def get_merge_base(repo: Repo, c1: Commit, c2: Commit) -> Optional[Commit]:
     return None if not common_prefix else h1[common_prefix - 1]
 
 
+def get_commits_for_branch(repo: Repo, branch_ref, repo_slug: str) -> List[Commit]:
+    """
+    Retrieve and cache the list of commits for the given branch reference.
+    Results are cached to a CSV file in 'merge_cache'.
+    """
+    branch_hash = hashlib.md5(branch_ref.path.encode("utf-8")).hexdigest()
+    commit_cache_file = (
+        CACHE_DIR / f"{repo_slug.replace('/', '_')}_{branch_hash}_commits.csv"
+    )
+
+    try:
+        if commit_cache_file.exists():
+            try:
+                df_commits = pd.read_csv(commit_cache_file)
+                commit_hexshas = df_commits["commit_hexsha"].tolist()
+                commits = [repo.commit(sha) for sha in commit_hexshas]
+            except Exception as e:
+                logger.error(
+                    f"Error reading commit cache file {commit_cache_file}: {e}"
+                )
+                commits = list(repo.iter_commits(branch_ref.path))
+        else:
+            commits = list(repo.iter_commits(branch_ref.path))
+            try:
+                df_commits = pd.DataFrame(
+                    {"commit_hexsha": [c.hexsha for c in commits]}
+                )
+                df_commits.to_csv(commit_cache_file, index=False)
+            except Exception as e:
+                logger.error(
+                    f"Error writing commit cache file {commit_cache_file}: {e}"
+                )
+        return commits
+    except GitCommandError:
+        return []
+
+
 def collect_branch_merges(
-    repo: Repo, branch_ref, repo_identifier: str, written_shas: Set[str]
+    repo: Repo, branch_ref, repo_slug: str, written_shas: Set[str]
 ) -> List[Dict[str, str]]:
     """
     For the given branch reference, find all 2-parent merge commits.
-    Returns a list of CSV rows (without an index) for the branch.
-    Columns: repository, branch_name, merge_commit, parent_1, parent_2, notes
-
-    Arguments:
-        repo: Repo
-            A GitPython Repo object.
-        branch_ref: Reference
-            A GitPython Reference object for the branch.
-        repo_identifier: str
-            The repository identifier (org/repo).
-        written_shas: Set[str]
-            A set of written commit SHAs to avoid duplicates.
-
-    Returns:
-        List[Dict[str, str]]
-            A list of CSV rows for the
+    Return a list of CSV rows for the branch. (Without duplicates in 'written_shas'.)
     """
     rows: List[Dict[str, str]] = []
-    try:
-        commits = list(repo.iter_commits(branch_ref.path))
-    except GitCommandError:
-        return rows
+    commits = get_commits_for_branch(repo, branch_ref, repo_slug)
+
     for commit in commits:
+        if len(written_shas) >= MAX_NUM_MERGES:
+            break
         if len(commit.parents) == 2:
             if commit.hexsha in written_shas:
                 continue
@@ -165,7 +151,7 @@ def collect_branch_merges(
             else:
                 notes = ""
             info = {
-                "repository": repo_identifier,
+                "repository": repo_slug,
                 "branch_name": branch_ref.path,
                 "merge_commit": commit.hexsha,
                 "parent_1": p1.hexsha,
@@ -176,55 +162,54 @@ def collect_branch_merges(
     return rows
 
 
-def collect_all_branches(repo: Repo, repo_identifier: str) -> pd.DataFrame:
+def get_filtered_refs(repo: Repo, repo_slug: str) -> List:
     """
-    Discover all local and remote branches, deduplicate them by their head commit,
-    find merge commits in each, and return a list of CSV rows.
-
-    Arguments:
-        repo: Repo
-            A GitPython Repo object.
-        repo_identifier: str
-            The repository identifier (org/repo).
-
-    Returns:
-        pd.DataFrame
-            A DataFrame with columns: repository, branch_name, merge_commit,
-            parent_1, parent_2,
+    Retrieve filtered branch references (local and remote) for a repository.
+    Uses a CSV cache to avoid recomputation. Deduplicates by commit head.
     """
-    rows: List[Dict[str, str]] = []
-    references = [
-        r
-        for r in repo.references
-        if r.path.startswith(("refs/heads/", "refs/remotes/"))
-    ]
-    seen_heads = set()
+    filtered_refs_cache_file = (
+        CACHE_DIR / f"{repo_slug.replace('/', '_')}_filtered_refs.csv"
+    )
     filtered_refs = []
-    for ref in references:
-        head_sha = ref.commit.hexsha
-        if head_sha not in seen_heads:
-            seen_heads.add(head_sha)
-            filtered_refs.append(ref)
-    written_shas: Set[str] = set()
-    for ref in filtered_refs:
-        rows.extend(collect_branch_merges(repo, ref, repo_identifier, written_shas))
-    df = pd.DataFrame(rows)
-    return df
+
+    if filtered_refs_cache_file.exists():
+        try:
+            df_refs = pd.read_csv(filtered_refs_cache_file)
+            ref_paths = df_refs["ref_path"].tolist()
+            all_refs = {r.path: r for r in repo.references}
+            for rp in ref_paths:
+                if rp in all_refs:
+                    filtered_refs.append(all_refs[rp])
+        except Exception as e:
+            logger.error(
+                f"Error reading filtered references cache file {filtered_refs_cache_file}: {e}"
+            )
+    else:
+        references = [
+            r
+            for r in repo.references
+            if r.path.startswith(("refs/heads/", "refs/remotes/"))
+        ]
+        seen_heads = set()
+        for ref in references:
+            head_sha = ref.commit.hexsha
+            if head_sha not in seen_heads:
+                seen_heads.add(head_sha)
+                filtered_refs.append(ref)
+        # Save to cache
+        try:
+            df_refs = pd.DataFrame({"ref_path": [r.path for r in filtered_refs]})
+            df_refs.to_csv(filtered_refs_cache_file, index=False)
+        except Exception as e:
+            logger.error(
+                f"Error writing filtered references cache file {filtered_refs_cache_file}: {e}"
+            )
+    return filtered_refs
 
 
 def get_repo_path(repo_slug: str) -> Path:
     """
     Return the local path where the repository should be cloned.
-
-    Arguments:
-        org: str
-            The organization name.
-        repo_name: str
-            The repository name.
-
-    Returns:
-        Path
-            The local path where the repository should be cloned.
     """
     repos_cache = Path(os.getenv("REPOS_PATH", "repos"))
     return repos_cache / f"{repo_slug}"
@@ -232,23 +217,7 @@ def get_repo_path(repo_slug: str) -> Path:
 
 def get_repo(repo_slug: str, log: bool = False) -> Repo:
     """
-    Clone or reuse a local copy of 'org/repo_name' under repos_cache/org/repo_name.
-    Returns a GitPython Repo object.
-
-    Arguments:
-        org: str
-            The organization name.
-        repo_name: str
-            The repository name.
-        log: bool
-            If True, log cloning/reusing messages.
-
-    Raises:
-        GitCommandError: If the repository cannot be cloned.
-
-    Returns:
-        Repo
-            A GitPython Repo object for the
+    Clone or reuse a local copy of 'org/repo' under repos_cache/org/repo.
     """
     repo_dir = get_repo_path(repo_slug)
     github_user, github_token = read_github_credentials()
@@ -279,34 +248,86 @@ def get_repo(repo_slug: str, log: bool = False) -> Repo:
         return Repo(str(repo_dir))
 
 
+def collect_all_merges(
+    repo: Repo, repo_slug: str, existing_shas: Optional[Set[str]] = None
+) -> pd.DataFrame:
+    """
+    Discover all filtered branch references, find merge commits in each,
+    and return a consolidated DataFrame. Uses 'existing_shas' to skip
+    merges already found in a previous run (if provided).
+    """
+    rows: List[Dict[str, str]] = []
+    filtered_refs = get_filtered_refs(repo, repo_slug)
+
+    # If we already have some merges, start 'written_shas' with them
+    written_shas = existing_shas if existing_shas is not None else set()
+    total_merges = len(written_shas)
+
+    for ref in filtered_refs:
+        if total_merges >= MAX_NUM_MERGES:
+            break
+        branch_merges = collect_branch_merges(repo, ref, repo_slug, written_shas)
+        rows.extend(branch_merges)
+        total_merges += len(branch_merges)
+
+    df = pd.DataFrame(rows)
+    return df
+
+
 def get_merges(repo: Repo, repo_slug: str, out_dir: Path) -> pd.DataFrame:
     """
-    Clone or reuse a local copy of 'org/repo', fetch PR branches,
-    collect merge commit rows, and return them.
-    If delete_local is True, remove the local clone after processing.
-
-    Arguments:
-        org: str
-            The organization name.
-        repo: str
-            The repository name.
-        out_dir: Path
-            The output directory where the final CSV file will be saved.
-
-    Returns:
-        pd.DataFrame
-            A DataFrame with columns: repository, branch_name, merge_commit,
-            parent_1, parent_2,
+    Clone/reuse a local copy of 'org/repo', fetch PR branches,
+    and collect merge commits. If an existing CSV is found, we:
+      - read it in
+      - if it already has >= MAX_NUM_MERGES merges, return as-is
+      - otherwise collect additional merges until reaching MAX_NUM_MERGES
+      - write out the combined result
     """
     results_path = out_dir / f"{repo_slug}.csv"
+
+    # Load existing partial results (if any)
+    existing_df = None
     if results_path.exists():
-        return pd.read_csv(results_path, index_col="idx")
+        existing_df = pd.read_csv(results_path, index_col="merge_idx")
+        if len(existing_df) >= MAX_NUM_MERGES:
+            # Already have enough merges for this repo
+            return existing_df.head(MAX_NUM_MERGES)
+
     logger.info(f"{repo_slug:<30} STARTED")
 
+    # We always ensure PR branches are fetched
     fetch_pr_branches(repo)
-    df = collect_all_branches(repo, repo_slug)
+
+    # Determine which merges we already have
+    if existing_df is not None and not existing_df.empty:
+        existing_shas = set(existing_df["merge_commit"])
+    else:
+        existing_shas = set()
+
+    # Collect new merges (skipping existing_shas)
+    new_df = collect_all_merges(repo, repo_slug, existing_shas=existing_shas)
+
+    if not new_df.empty:
+        # Combine the new merges with any existing ones
+        if existing_df is not None and not existing_df.empty:
+            combined_df = pd.concat(
+                [existing_df, new_df], ignore_index=True
+            ).drop_duplicates(subset=["merge_commit"])
+        else:
+            combined_df = new_df
+
+        # Truncate to MAX_NUM_MERGES if needed
+        if len(combined_df) > MAX_NUM_MERGES:
+            combined_df = combined_df.head(MAX_NUM_MERGES)
+    else:
+        # No new merges found, so just use existing
+        combined_df = existing_df if existing_df is not None else pd.DataFrame()
+
     logger.info(f"{repo_slug:<30} DONE")
+
+    # Write out the final DataFrame
     results_path.parent.mkdir(parents=True, exist_ok=True)
-    df.index.name = "idx"
-    df.to_csv(results_path, index_label="idx")
-    return df
+    combined_df.index.name = "merge_idx"
+    combined_df.to_csv(results_path, index_label="merge_idx")
+
+    return combined_df

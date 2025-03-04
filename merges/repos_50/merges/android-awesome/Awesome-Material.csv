@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,android-awesome/Awesome-Material,refs/heads/master,a912bac57df50a6453e27dff9f33cad3ec35fd11,5c335f077f183cd868f979d92a78146dd600291c,d09d00b35921b71202b4a415b515ffe800323a67,
 1,android-awesome/Awesome-Material,refs/heads/master,151fe7d96b4278138494d81f026b7d9f52b84842,12d7302e137cf3e441774063d3f1354ca4ec06f5,098d2b8ac53a58994d2de34b30f3c7a3635b15cf,a parent is the base
 2,android-awesome/Awesome-Material,refs/heads/master,12d7302e137cf3e441774063d3f1354ca4ec06f5,d07e50df8c8c703feffcb9c6117edcba920794b0,a54987c7954bad255e1cf7b1da1ba7d2b06c3984,a parent is the base

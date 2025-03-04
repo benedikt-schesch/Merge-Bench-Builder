@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,mangstadt/ez-vcard,refs/heads/master,8f26d88838bfe671cef10e6a832c0c6a57b42fcd,814aae2b1a8ba6e42074d282b2ff9d1af632aef3,f308a61574b9182d151aa9d0cf5fbe5818a48fb8,
 1,mangstadt/ez-vcard,refs/heads/master,0637f5fc19cf6ad79cd2c58981facc3678d5bbff,b8b0b0c8e1dff237975942022a42c6c25b9d9741,3c10bf587f097be3e2a77b0d2d556e6f9efd97b1,
 2,mangstadt/ez-vcard,refs/heads/master,633e9c677f26c1cae476d9ce43331cc30bd8f9e8,af63ebf1a441d0165bab7f6250caf0e2793b9829,22631a4817aa29b231919cb5d8c05d935386b763,a parent is the base

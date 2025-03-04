@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,java-irclib/irclib,refs/heads/master,025fc9807b0185fc47f8b6865e35d1ae7d14728d,6e8de14aefc5f241d990653d823a7c4c92548fd9,28af91915394915ed84d7bd9fd07d65059381ae5,a parent is the base
 1,java-irclib/irclib,refs/heads/master,6e8de14aefc5f241d990653d823a7c4c92548fd9,714f6b64a1341850eb6f7769a8587a209d1e5ad7,410de6f118bc013f757a1c36a22ad2d89cff3990,a parent is the base
 2,java-irclib/irclib,refs/heads/master,714f6b64a1341850eb6f7769a8587a209d1e5ad7,cf2c8ee6f19db3fe1d187702485a80c1223108c5,cc1923ca093c54a9274b3cb1b859eb15f0c3df8c,a parent is the base

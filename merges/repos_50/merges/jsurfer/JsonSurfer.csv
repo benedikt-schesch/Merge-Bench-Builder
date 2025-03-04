@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,jsurfer/JsonSurfer,refs/heads/master,907802009d1831407cf9719dfe7f3aa31c02e893,f5e5cae563500835b62f9943719f9b602fb0dfd1,e826a00a343350fa7d8d62c7a6cdde4af41143ae,a parent is the base
 1,jsurfer/JsonSurfer,refs/heads/master,f5e5cae563500835b62f9943719f9b602fb0dfd1,469b689b833062b25b1f6eb38346b7457b2a2993,63c1d1d6ae84c91273467511f266fcd575bb08bd,a parent is the base
 2,jsurfer/JsonSurfer,refs/heads/master,469b689b833062b25b1f6eb38346b7457b2a2993,7e521357e775624898a24dbc1998ef3577ad418c,27f872aaea3576cfe8f9a623a7b116f6c69fa48a,

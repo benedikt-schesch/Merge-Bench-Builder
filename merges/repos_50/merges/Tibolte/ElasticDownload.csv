@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,Tibolte/ElasticDownload,refs/heads/master,6417746cefbb9b68f408583319e469d34411a6d9,dbf3e223e4c1d0e93d2d6ef494826643f61d480b,d4442328592058d4cdafb945c4f2903fb49def8a,a parent is the base
 1,Tibolte/ElasticDownload,refs/heads/master,dbf3e223e4c1d0e93d2d6ef494826643f61d480b,6f33b6d3fe42b0ca932a4a7bb8d5f6db08ff93c7,c5d5beeae90018c27a2fe5c36167a520a25fb109,a parent is the base
 2,Tibolte/ElasticDownload,refs/heads/master,65d81bd5e85bd4326c0fc91a318b7d3af69cddef,49ad6debe05525422ce907c18fe9a79e6a440c55,9bc29465bb13cf6a84a68aa12e907d8b924528c6,a parent is the base

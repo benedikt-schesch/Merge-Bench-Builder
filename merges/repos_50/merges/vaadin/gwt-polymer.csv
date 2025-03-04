@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,vaadin/gwt-polymer,refs/heads/master,8e4798a37367a2f59b2c3e5c2c3734016ddf9d8d,54e23895d0aae3b0371badbb7fb4ec300777f60e,68bd6bf6ecb76bf5b6159d59988f688e2f6fa9dc,a parent is the base
 1,vaadin/gwt-polymer,refs/heads/master,8d9e4dc93c46c668bb8370c8acd2213039cbf17e,bbda74124f176807cd973e19d0b3534c211c1c25,e3b84648c82387b32afa060b161ec5cca2b7f823,a parent is the base
 2,vaadin/gwt-polymer,refs/heads/master,3545ba38314964dcd4edca5cf384bebd4fbc6a1e,81e6b2c814e64fe0b6e848a51aa324a714c7e5c8,f902c3c49daae2c5992f91b64a95d87e7dfe61ba,

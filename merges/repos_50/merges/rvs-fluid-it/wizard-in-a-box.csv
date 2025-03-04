@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,rvs-fluid-it/wizard-in-a-box,refs/heads/master,40ee12466ddf4db30a2b937bc00ce031a6e34947,a82612de585402782b92e82749a440196417006b,5d4eb7f62b77a3077d884ef2edccfe5ec0945407,a parent is the base
 1,rvs-fluid-it/wizard-in-a-box,refs/heads/master,0d0b2d1e16e1f769097d6988176dc741c12be7a8,12b9a97496ccef90139965431faad7ca84ad9477,29104cd2d561cc3327c0d03d02eccdcf66b7db56,a parent is the base
 2,rvs-fluid-it/wizard-in-a-box,refs/heads/master,d665904119c8f4319ab2065ad4327a60bdf7f678,2e56f8bbe15963626fef7acb6a9b96166e83735d,ab3a53061a3927007d5a2573fe0cba30afee76eb,a parent is the base

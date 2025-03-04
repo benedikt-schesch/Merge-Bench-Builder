@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,coobird/thumbnailator,refs/heads/master,e725fabdd4ea50e634d497d18deb2b1eafd30594,2b45795c4c11c622500e64a047db078d7a71a872,7e22d5a9670b0ef3bd3e119ff8f581095bba7a2e,a parent is the base
 1,coobird/thumbnailator,refs/heads/master,7e22d5a9670b0ef3bd3e119ff8f581095bba7a2e,3f84a6bbdaa166d6e7bd049caa8c25fa04240b7d,e92a2487daf8d23dbeb5a1a3f268de5c3451fd83,a parent is the base
 2,coobird/thumbnailator,refs/heads/master,409e4c757b8c611297ec8692c5ec0db5a5178e61,f61c475472f7a07c3d3cdff086f12d6380e8bf44,2b45795c4c11c622500e64a047db078d7a71a872,a parent is the base

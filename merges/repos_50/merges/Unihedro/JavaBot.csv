@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,Unihedro/JavaBot,refs/heads/master,e962fed01807963c1bb7a3e39ff34739146d8c08,7976bf296def4b9787d708ac25a59b591e794090,2452cafec05f7b6d5ca9547c84b6ef5caefc1140,a parent is the base
 1,Unihedro/JavaBot,refs/heads/master,da1944d54eccbeaaeb713a0a715b8cb1cf7cb74e,f3b47111f837f2f658ffba371717912860fcce22,7976bf296def4b9787d708ac25a59b591e794090,
 2,Unihedro/JavaBot,refs/heads/master,7976bf296def4b9787d708ac25a59b591e794090,0b713f269d724264dfda7c7f7abb0382154d3677,ec8dd3368ccab6016502271ef730f325a52a47f4,a parent is the base

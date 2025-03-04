@@ -1,4 +1,4 @@
-idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
+merge_idx,repository,branch_name,merge_commit,parent_1,parent_2,notes
 0,minman/wicketforge,refs/heads/master,e37e21a29b41f806a321778ffe81dfdbf064fc1a,aeb9252740f70264ffc7cdd90f361f905af9165f,86ea87537c60c7820ae7b50f8e7b037326e66858,a parent is the base
 1,minman/wicketforge,refs/heads/master,aeb9252740f70264ffc7cdd90f361f905af9165f,5a6196f43ebb28cf8035b84618568e5062dd38a6,904bfab8a07ad805e2db7de13be9f20c98b54071,
 2,minman/wicketforge,refs/heads/master,39466de63b5d2aabb200801f30ba7991fb784d41,e6806d0530d2dc90fecf33582fc266f56e975115,919d31598254fd7d7e96d6f8b75f1803d296f374,a parent is the base
