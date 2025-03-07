@@ -5,7 +5,6 @@
 import os
 import re
 import math
-from difflib import SequenceMatcher
 from typing import Optional, List, Dict
 from unsloth import FastLanguageModel, PatchFastRL, is_bfloat16_supported
 from trl import GRPOConfig, GRPOTrainer
@@ -26,138 +25,153 @@ THINKING_PATTERN = r"^(?:[\s\S]*?)\n</think>\n(?:[\s\S]*)$"
 CONFLICT_MARKERS = ["<<<<<<<", "=======", "|||||||", ">>>>>>>"]
 
 
-# Load and prep dataset
+# def log_responses(
+#     prompts: List[List[Dict[str, str]]], responses: List[str], answer: List[str]
+# ) -> None:
+#     """Log the responses for debugging"""
+#     q = prompts[0][-1]["content"]
+#     debug_file = "debug.txt"
+#     if os.path.exists(debug_file):
+#         with open(debug_file, "r", encoding="utf-8") as f:
+#             existing_entries = f.read().count("Question:")
+#     else:
+#         existing_entries = 0
+#     entry_number = existing_entries + 1
+
+#     with open(debug_file, "a", encoding="utf-8") as f:
+#         f.write(
+#             f"\n\nEntry #{entry_number}\nQuestion:\n{q}\nExpected Answer:\n{answer[0]}\n\n"
+#         )
+#         for idx, r in enumerate(responses):
+#             f.write(f"Response {idx}:\n{r}\n\n")
+
+# ------------------------------------------
+# 1) Pre-compile your regex patterns
+# ------------------------------------------
+JAVA_MARKDOWN_RE = re.compile(r"```java\n(.*?)\n```", re.DOTALL)
+THINKING_RE = re.compile(r"^(?:[\s\S]*?)\n</think>\n(?:[\s\S]*)$", re.DOTALL)
+
+# For normalizing Java code
+BLOCK_COMMENT_RE = re.compile(r"/\*[\s\S]*?\*/")
+LINE_COMMENT_RE = re.compile(r"//.*")
+WHITESPACE_RE = re.compile(r"\s+")
+
+CONFLICT_MARKERS = ["<<<<<<<", "=======", "|||||||", ">>>>>>>"]
+
+# Pre-compile patterns
+JAVA_MARKDOWN_RE = re.compile(r"```java\n(.*?)\n```", re.DOTALL)
+THINKING_RE = re.compile(r"^(?:[\s\S]*?)\n</think>\n(?:[\s\S]*)$", re.DOTALL)
+
+# For normalizing Java code
+BLOCK_COMMENT_RE = re.compile(r"/\*[\s\S]*?\*/")
+LINE_COMMENT_RE = re.compile(r"//.*")
+WHITESPACE_RE = re.compile(r"\s+")
+
+CONFLICT_MARKERS = ["<<<<<<<", "=======", "|||||||", ">>>>>>>"]
+
+
+def normalize_java_code(code: str) -> str:
+    """
+    Normalizes Java code by removing block comments, line comments,
+    and extra whitespace (so we focus on core semantics).
+    """
+    code = BLOCK_COMMENT_RE.sub("", code)
+    code = LINE_COMMENT_RE.sub("", code)
+    code = WHITESPACE_RE.sub(" ", code)
+    return code.strip()
+
+
 def extract_answer(text: str) -> str:
-    """Extracts the answer block from the new formatted response."""
-    return text.split("</think>")[-1]
-
-
-def format_reward(completions, **kwargs) -> list[float]:
-    """Reward function that checks if the completion has a specific format."""
-    responses = [completion[0]["content"] for completion in completions]
-    matches = [re.match(THINKING_PATTERN, r) for r in responses]
-    return [0.5 if match else 0.0 for match in matches]
-
-
-def java_markdown_reward(completions, **kwargs) -> list[float]:
     """
-    Checks if the answer block (extracted via extract_xml_answer) contains Java markdown formatting.
-    This version is 'strong' because it only considers the content within the answer block.
+    Extracts the answer portion from the response (after </think>).
+    If there's no </think>, just returns the original text.
     """
-    responses = [completion[0]["content"] for completion in completions]
-    rewards = [
-        1.0 if re.search(JAVA_MARKDOWN_PATTERN, extract_answer(r), re.DOTALL) else 0.0
-        for r in responses
-    ]
-    return rewards
-
-
-def similarity(s1: str, s2: str) -> float:
-    """Return similarity ratio between two strings (1.0 means identical)."""
-    return SequenceMatcher(None, s1, s2).ratio()
+    parts = text.split("</think>", 1)
+    return parts[-1] if len(parts) > 1 else parts[0]
 
 
 def extract_code_block(text: str) -> Optional[str]:
     """
-    Extracts a code block from a markdown-formatted text.
-    If no markdown code block is found, returns None
+    Extracts the code block from a markdown-formatted text:
+       ```java
+       ... some code ...
+       ```
+    Returns None if there's no Java code block.
     """
-    match = re.search(JAVA_MARKDOWN_PATTERN, text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    return None
-
-
-def log_responses(prompts, responses, answer):
-    """Log the responses for debugging"""
-    q = prompts[0][-1]["content"]
-    debug_file = "debug.txt"
-    if os.path.exists(debug_file):
-        with open(debug_file, "r", encoding="utf-8") as f:
-            existing_entries = f.read().count("Question:")
-    else:
-        existing_entries = 0
-    entry_number = existing_entries + 1
-
-    with open(debug_file, "a", encoding="utf-8") as f:
-        f.write(
-            f"\n\nEntry #{entry_number}\nQuestion:\n{q}\nExpected Answer:\n{answer[0]}\n\n"
-        )
-        for idx, r in enumerate(responses):
-            f.write(f"Response {idx}:\n{r}\n\n")
+    match = JAVA_MARKDOWN_RE.search(text)
+    return match.group(1).strip() if match else None
 
 
 def has_conflict_markers(text: str) -> bool:
-    """Check if the text contains any conflict markers."""
+    """Check if the text contains any conflict markers (e.g., '<<<<<<<')."""
     return any(marker in text for marker in CONFLICT_MARKERS)
 
 
-def compute_conflict_reward(
-    prompts: List[List[Dict[str, str]]], code_block: str
-) -> float:
-    """
-    Computes reward as the similarity ratio (acting as a normalized edit distance signal)
-    between the answer block from the response and a reference.
-    """
-    goal_code_block = extract_code_block(prompts[0][-1]["content"])
-    assert goal_code_block is not None, "Code block not found in prompt"
-    sim = similarity(code_block, goal_code_block)
-    return sim
+# ------------------------------------------------------------------
+# Reward Functions (using list comprehensions where possible)
+# ------------------------------------------------------------------
 
 
-def compute_goal_file_reward(
-    prompts: List[List[Dict[str, str]]],
-    code_block: str,
-    correct_answer_multiplier: float = CORRECT_ANSWER_MULTIPLIER,
-) -> float:
+def format_reward(
+    completions: List[List[Dict[str, str]]],
+    **kwargs,
+) -> List[float]:
     """
-    Computes reward as the similarity ratio (acting as a normalized edit distance signal)
-    between the answer block from the response and a reference.
+    Reward = 0.5 if the completion matches the 'thinking' pattern.
+    Otherwise 0.0.
     """
-    goal_code_block = extract_code_block(prompts[0][-1]["content"])
-    assert goal_code_block is not None, "Code block not found in prompt"
-    sim = similarity(code_block, goal_code_block)
-    return correct_answer_multiplier * sim if sim == 1.0 else sim
+    return [0.5 if THINKING_RE.match(c[0]["content"]) else 0.0 for c in completions]
 
 
-def correctness_reward_func(
+def java_markdown_reward(
+    completions: List[List[Dict[str, str]]],
+    **kwargs,
+) -> List[float]:
+    """
+    Reward = 1.0 if the *answer block* (after </think>)
+    contains a Java code block (```java ... ```).
+    Otherwise 0.0.
+    """
+    return [
+        1.0 if JAVA_MARKDOWN_RE.search(extract_answer(c[0]["content"])) else 0.0
+        for c in completions
+    ]
+
+
+def merged_conflict_reward(
     prompts: List[List[Dict[str, str]]],
     completions: List[List[Dict[str, str]]],
     answer: List[str],
-    correct_answer_multiplier: float = CORRECT_ANSWER_MULTIPLIER,
     **kwargs,
-) -> list[float]:
+) -> List[float]:
     """
-    Computes reward as the similarity ratio (acting as a normalized edit distance signal)
-    between the answer block from the response and a reference.
-
-    - If the answer block contains any conflict markers (e.g., <<<<<<<, =======, >>>>>>>),
-      the reference is the code block extracted from the input prompt.
-    - Otherwise, the reference is the expected answer (provided via `answer`).
+    Merged reward function with the following logic:
+      - 1.0 if the completion's code block exactly matches the correct resolution
+      - 0.5 if it's only semantically the same (ignoring comments/whitespace)
+      - 0.1 if it matches the prompt's code block (i.e. raises a conflict)
+      - 0.0 otherwise
     """
-    responses = [completion[0]["content"] for completion in completions]
-    extracted_responses = [extract_answer(r) for r in responses]
+    # Extract the "goal" code block (the one in the prompt's last message)
+    goal_code_block = extract_code_block(prompts[0][-1]["content"])
+    
+    # Print the responses for debugging
+    print("-" * 20, f"\nResponse:\n{completions[0][0]["content"]}")
 
-    # Print the first response for debugging
-    print("-" * 20, f"\nResponse:\n{responses[0]}")
-
-    log_responses(prompts, responses, answer)
-
-    rewards = []
-    for response in extracted_responses:
-        code_block = extract_code_block(response)
-        if code_block is None:
-            rewards.append(0.0)
-        elif has_conflict_markers(code_block):
-            rewards.append(compute_conflict_reward(prompts, code_block))
-        else:
-            rewards.append(
-                compute_goal_file_reward(prompts, code_block, correct_answer_multiplier)
-            )
-
-    # Square the rewards to amplify the signal
-    rewards = [r**2 for r in rewards]
-    return rewards
+    return [
+        (
+            0.0
+            if (cb := extract_code_block(extract_answer(c[0]["content"]))) is None
+            else 1.0
+            if cb == answer[idx]  # exact match
+            else 0.5
+            if normalize_java_code(cb)
+            == normalize_java_code(answer[idx])  # semantic match
+            else 0.1
+            if cb == goal_code_block  # same as prompt => conflict
+            else 0.0
+        )
+        for idx, c in enumerate(completions)
+    ]
 
 
 if __name__ == "__main__":
@@ -170,7 +184,7 @@ if __name__ == "__main__":
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=MODEL,
         max_seq_length=MAX_SEQ_LENGTH + MAX_PROMPT_LENGTH + len(SYSTEM_PROMPT),
-        load_in_4bit=False,  # False for LoRA 16bit
+        load_in_4bit=True,  # False for LoRA 16bit
         fast_inference=True,  # Enable vLLM fast inference
         max_lora_rank=LORA_RANK,
         gpu_memory_utilization=0.5,  # Reduce if out of memory
@@ -207,8 +221,8 @@ if __name__ == "__main__":
         bf16=is_bfloat16_supported(),
         fp16=not is_bfloat16_supported(),
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=1,  # Increase to 4 for smoother training
-        num_generations=14,  # Decrease if out of memory
+        gradient_accumulation_steps=4,  # Increase to 4 for smoother training
+        num_generations=8,  # Decrease if out of memory
         max_prompt_length=MAX_PROMPT_LENGTH,
         max_completion_length=MAX_SEQ_LENGTH,
         temperature=0.9,
@@ -225,7 +239,8 @@ if __name__ == "__main__":
         processing_class=tokenizer,
         reward_funcs=[  # type: ignore
             format_reward,
-            correctness_reward_func,
+            java_markdown_reward,
+            merged_conflict_reward,
         ],
         args=training_args,
         train_dataset=dataset["train"],  # type: ignore

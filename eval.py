@@ -9,7 +9,6 @@ Loads the same dataset as in training and computes:
   - % that are correctly resolved
 """
 
-# Import variables and functions from your training script.
 from pathlib import Path
 from tqdm import tqdm
 from loguru import logger
@@ -21,10 +20,7 @@ from train import (
     MAX_SEQ_LENGTH,
     MAX_PROMPT_LENGTH,
     SYSTEM_PROMPT,
-    extract_code_block,
-    compute_conflict_reward,
-    compute_goal_file_reward,
-    has_conflict_markers,
+    merged_conflict_reward,
     format_reward,
     java_markdown_reward,
 )
@@ -33,7 +29,50 @@ open("eval.log", "w", encoding="utf-8").close()  # pylint: disable=consider-usin
 logger.add("eval.log", backtrace=True, diagnose=True)
 
 
-def main():  # pylint: disable=too-many-locals, too-many-statements
+def model_inference(example, model, tokenizer, text_streamer):
+    """Perform model inference."""
+    # Generate a completion for the given prompt.
+    inputs = tokenizer.apply_chat_template(
+        example["prompt"],  # type: ignore
+        add_generation_prompt=True,
+        tokenize=True,
+        return_tensors="pt",
+    ).to(model.device)  # type: ignore
+
+    # Generate with a max number of new tokens.
+    output_tokens = model.generate(
+        input_ids=inputs,
+        streamer=text_streamer,
+        max_new_tokens=MAX_SEQ_LENGTH,
+        use_cache=True,
+    )
+    # Get the full completion before truncation.
+    full_completion = tokenizer.decode(output_tokens[0], skip_special_tokens=False)
+    return full_completion
+
+
+def get_model(model_name, load_in_4bit: bool = True):
+    """Load the model and tokenizer."""
+    # Load the model and tokenizer (using same parameters as in training)
+    if "unsloth" in model_name:
+        model, tokenizer = unsloth.FastLanguageModel.from_pretrained(
+            model_name=model_name,
+            max_seq_length=MAX_SEQ_LENGTH + MAX_PROMPT_LENGTH + len(SYSTEM_PROMPT),
+            load_in_4bit=load_in_4bit,
+        )
+        unsloth.FastLanguageModel.for_inference(model)
+    else:
+        from transformers import AutoModelForCausalLM, AutoTokenizer  # pylint: disable=import-outside-toplevel
+
+        model = AutoModelForCausalLM.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    print(f"Device: {model.device}")
+    text_streamer = TextStreamer(tokenizer)  # type: ignore
+    return model, tokenizer, text_streamer
+
+
+def main():  # pylint: disable=too-many-locals, too-many-statements, too-many-branches
     """Main function for evaluation script."""
     # Load the dataset (using the same training data)
     dataset = load_from_disk("merges/repos_50/dataset")["train"]
@@ -41,36 +80,23 @@ def main():  # pylint: disable=too-many-locals, too-many-statements
     logger.info("Starting evaluation...")
     logger.info(f"Loaded {len(dataset)} examples.")
 
-    model_name = "unsloth/deepSeek-r1-distill-qwen-7b"
+    model_name = "unsloth/QwQ-32B"
+    load_in_4bit = True
 
     torch.set_grad_enabled(False)
-    output_dir = Path("eval_ouputs")
+    output_dir = Path("eval_outputs")
 
-    # Load the model and tokenizer (using same parameters as in training)
-    if "unsloth" in model_name:
-        load_in_4bit = False
-        model, tokenizer = unsloth.FastLanguageModel.from_pretrained(
-            model_name=model_name,
-            max_seq_length=MAX_SEQ_LENGTH + MAX_PROMPT_LENGTH + len(SYSTEM_PROMPT),
-            load_in_4bit=load_in_4bit,
-        )
-        if load_in_4bit:
-            output_dir = output_dir / f"{model_name}-loaded-4bit"
-        else:
-            output_dir = output_dir / model_name
-        unsloth.FastLanguageModel.for_inference(model)
+    if load_in_4bit:
+        output_dir = output_dir / f"{model_name}-loaded-4bit"
     else:
-        from transformers import AutoModelForCausalLM, AutoTokenizer  # pylint: disable=import-outside-toplevel
-
-        model = AutoModelForCausalLM.from_pretrained(model_name)
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
         output_dir = output_dir / model_name
-
-    print(f"Device: {model.device}")
 
     # Set up file to store full outputs before truncation.
     output_dir.mkdir(parents=True, exist_ok=True)
     logger.add(output_dir / "eval.log", backtrace=True, diagnose=True)
+
+    # Lazy model loading: initialize as None.
+    model, tokenizer, text_streamer = None, None, None
 
     total = 0
     count_thinking = 0
@@ -78,73 +104,59 @@ def main():  # pylint: disable=too-many-locals, too-many-statements
     count_conflict_preserved = 0
     count_resolved_perfectly = 0
     count_resolved_semantically = 0
-    text_streamer = TextStreamer(tokenizer)  # type: ignore
 
     # Loop over the examples in the dataset.
     for idx, example in enumerate(tqdm(dataset)):
         total += 1
 
-        # Generate a completion for the given prompt.
-        inputs = tokenizer.apply_chat_template(
-            example["prompt"],  # type: ignore
-            add_generation_prompt=True,
-            tokenize=True,
-            return_tensors="pt",
-        ).to(model.device)  # type: ignore
+        output_file_path = output_dir / f"example_{idx}.txt"
+        if output_file_path.exists():
+            with open(output_file_path, "r", encoding="utf-8") as f:
+                full_completion = f.read()
+        else:
+            # Load the model lazily if not already loaded.
+            if model is None:
+                model, tokenizer, text_streamer = get_model(model_name, load_in_4bit)
+            full_completion = model_inference(example, model, tokenizer, text_streamer)
+            # Write the full completion to file.
+            with open(output_file_path, "w", encoding="utf-8") as output_file:
+                output_file.write(full_completion)
 
-        # Generate with a max number of new tokens.
-        output_tokens = model.generate(
-            input_ids=inputs,
-            streamer=text_streamer,
-            max_new_tokens=MAX_SEQ_LENGTH,
-            use_cache=True,
-        )
-        # Get the full completion before truncation.
-        full_completion = tokenizer.decode(output_tokens[0], skip_special_tokens=False)
-        # Write the full completion to file.
-        output_file = output_dir / f"example_{idx}.txt"
-        with open(output_file, "w", encoding="utf-8") as output_file:
-            output_file.write(full_completion)
-
-        completion = full_completion.split("<｜Assistant｜>", 1)[1]
+        if "<｜Assistant｜>" in full_completion:
+            completion = full_completion.split("<｜Assistant｜>", 1)[1]
+        elif "<|im_start|>assistant" in full_completion:
+            completion = full_completion.split("<|im_start|>assistant", 1)[1]
+        else:
+            raise ValueError("Could not find completion in full output.")
 
         # Wrap prompt text into the expected structure.
-        wrapped_completions = [[{"content": completion}]]
-        wrapped_prompts = [[{"content": example["question"]}]]  # type: ignore
+        completions = [[{"content": completion}]]
+        prompts = [[{"content": example["question"]}]]  # type: ignore
+        answers = [example["answer"]]  # type: ignore
 
         # Evaluate the thinking format.
-        if format_reward(wrapped_completions)[0] > 0:
+        if format_reward(completions)[0] > 0:
             count_thinking += 1
 
         # Evaluate the Java markdown formatting.
-        if java_markdown_reward(wrapped_completions)[0] > 0:
+        if java_markdown_reward(completions)[0] > 0:
             count_java_md += 1
 
-        code_block = extract_code_block(completion)
-        if code_block is None:
-            continue
+        reward = merged_conflict_reward(prompts, completions, answers)[0]
 
-        if (
-            has_conflict_markers(code_block)
-            and compute_conflict_reward(wrapped_prompts, code_block) == 1.0
-        ):
+        # If the model raises a conflict
+        if reward == 0.1:
             count_conflict_preserved += 1
-        elif (
-            compute_goal_file_reward(
-                wrapped_prompts, code_block, correct_answer_multiplier=1
-            )
-            == 1.0
-        ):
-            logger.info(f"Example {idx} resolved perfectly.")
+
+        # If the model resolves the conflict perfectly
+        if reward >= 0.5:
+            logger.info(f"Semantically resolved {idx}.")
             count_resolved_perfectly += 1
+
+        # If the model resolves the conflict semantically
+        if reward == 1.0:
+            logger.info(f"Resolved {idx}.")
             count_resolved_semantically += 1
-        else:
-            # Create seantic code blocks i.e. remove all whitespace and newlines and tabs.
-            semantic_code_block = " ".join(code_block.split())
-            semantic_resolution = " ".join(example["answer"].split())  # type: ignore
-            if semantic_code_block == semantic_resolution:
-                logger.info(f"Example {idx} semantically resolved.")
-                count_resolved_semantically += 1
 
     # Compute percentages.
     pct_thinking = 100 * count_thinking / total if total > 0 else 0
