@@ -20,8 +20,7 @@ list of conflict file IDs.
 """
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
-import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 import shutil
 from pathlib import Path
@@ -29,10 +28,11 @@ from typing import List
 import pandas as pd
 from git import GitCommandError, Repo
 from loguru import logger
-from rich.progress import Progress
+from tqdm import tqdm
 import timeout_decorator
 
 from find_merges import get_repo, get_merges
+from utils import get_num_workers
 
 
 logger.add("run.log", backtrace=True, diagnose=True)
@@ -272,7 +272,7 @@ def main():  # pylint: disable=too-many-statements
     (output_dir / "conflict_files/cache").mkdir(parents=True, exist_ok=True)
 
     repos_df = pd.read_csv(args.repos)
-    num_workers = os.cpu_count() - 1 if args.n_threads is None else args.n_threads  # type: ignore
+    num_workers = num_workers = get_num_workers(args.n_threads)
 
     # Ensure deterministic order of repositories
     repos_df = repos_df.sort_values(by="repository")
@@ -294,16 +294,11 @@ def main():  # pylint: disable=too-many-statements
         futures_by_index = sorted([(index, future) for future, index in tasks.items()])
         ordered_futures = [f for _, f in futures_by_index]
 
-        with Progress() as progress:
-            progress_task = progress.add_task(
-                "Collecting merges...", total=len(ordered_futures)
-            )
-            for future in ordered_futures:
-                try:
-                    result.append(future.result())
-                except Exception as exc:
-                    logger.error(f"Worker thread raised an exception: {exc}")
-                progress.advance(progress_task)
+        for future in tqdm(as_completed(tasks)):
+            try:
+                result.append(future.result())
+            except Exception as exc:
+                logger.error(f"Worker thread raised an exception: {exc}")
 
     # Combine all merge CSVs
     all_merges_df = pd.concat(result)
@@ -340,20 +335,15 @@ def main():  # pylint: disable=too-many-statements
         )
         ordered_futures = [(future, merge_id) for merge_id, future in ordered_items]
 
-        with Progress() as progress:
-            progress_task = progress.add_task(
-                "Extracting conflicts...", total=len(ordered_futures)
-            )
-            # Process each future in deterministic order
-            for future, merge_id in ordered_futures:
-                try:
-                    _, conflict_str = future.result()
-                    all_merges_df.loc[merge_id, "conflicts"] = conflict_str  # type: ignore
-                except timeout_decorator.TimeoutError:
-                    logger.error(f"Task for merge_id {merge_id} timed out.")
-                except Exception as e:
-                    logger.error(f"Error processing merge_id {merge_id}: {e}")
-                progress.advance(progress_task)
+        # Process each future in deterministic order
+        for future, merge_id in tqdm(ordered_futures):
+            try:
+                _, conflict_str = future.result()
+                all_merges_df.loc[merge_id, "conflicts"] = conflict_str  # type: ignore
+            except timeout_decorator.TimeoutError:
+                logger.error(f"Task for merge_id {merge_id} timed out.")
+            except Exception as e:
+                logger.error(f"Error processing merge_id {merge_id}: {e}")
 
     # Combine all results
     all_merges_df = all_merges_df[all_merges_df["conflicts"] != ""]  # pylint: disable=use-implicit-booleaness-not-comparison-to-string
