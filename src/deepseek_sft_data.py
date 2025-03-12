@@ -9,22 +9,18 @@ This script:
 5. Outputs both the full responses and a CSV summary
 """
 
-import os
-import json
 import csv
-import time
 import argparse
-import hashlib
 import concurrent.futures
 from typing import Tuple, Optional, Dict
 from pathlib import Path
 from tqdm import tqdm
 from datasets import load_from_disk
 from loguru import logger
-from openai import OpenAI
-from src.utils import (
+from utils import (
     extract_code_block,
     normalize_java_code,
+    cached_query_deepseek_api,
 )
 
 # Configure logger
@@ -32,79 +28,9 @@ logger.remove()
 logger.add("deepseek_sft.log", level="INFO")
 logger.add(lambda msg: tqdm.write(msg, end=""), level="INFO")
 
-DEEPSEEK_API_URL = "https://api.deepseek.com"
-CACHE_DIR = Path("deepseek_cache")
 OUTPUT_DIR = Path("deepseek_sft")
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_FILE = OUTPUT_DIR / "results.csv"
-
-
-def get_cache_key(prompt: str) -> str:
-    """Generate a unique cache key for a prompt."""
-    return hashlib.md5(prompt.encode()).hexdigest()
-
-
-def load_from_cache(cache_key: str) -> Optional[Dict[str, str]]:
-    """Load response from cache if it exists."""
-    cache_file = CACHE_DIR / f"{cache_key}.json"
-    if cache_file.exists():
-        with open(cache_file, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return None
-
-
-def save_to_cache(cache_key: str, response: Dict[str, str]) -> None:
-    """Save response to cache."""
-    cache_file = CACHE_DIR / f"{cache_key}.json"
-    with open(cache_file, "w", encoding="utf-8") as file:
-        json.dump(response, file, indent=4)
-
-
-def query_deepseek_api(prompt: str) -> Optional[Dict[str, str]]:
-    """Query the DeepSeek R1 API for conflict resolution with retries."""
-    api_key = os.environ.get("DEEPSEEK_API_KEY")
-    if not api_key:
-        logger.error("DEEPSEEK_API_KEY environment variable not set")
-        raise ValueError("DEEPSEEK_API_KEY key not set")
-    client = OpenAI(api_key=api_key, base_url=DEEPSEEK_API_URL)
-
-    for attempt in range(3):
-        try:
-            response = client.chat.completions.create(
-                model="deepseek-reasoner",
-                messages=[{"role": "user", "content": prompt}],  # type: ignore
-                stream=False,
-            )
-
-            reasoning = response.choices[0].message.reasoning_content  # type: ignore
-            result = response.choices[0].message.content
-
-            if reasoning is None or result is None:
-                raise ValueError("Response is missing reasoning or content")
-
-            return {"prompt": prompt, "reasoning": reasoning, "result": result}
-
-        except Exception as e:
-            logger.error(f"Attempt {attempt + 1} failed: {e}")
-            if attempt < 2:
-                time.sleep(2)  # Short delay before retry
-            else:
-                raise  # Raise exception after 3 failed attempts
-    raise ValueError("Failed to query DeepSeek API after 3 attempts")
-
-
-def cached_query_deepseek_api(prompt: str) -> Optional[Dict[str, str]]:
-    """Query the DeepSeek R1 API with caching."""
-    cache_key = get_cache_key(prompt)
-    cached_response = load_from_cache(cache_key)
-    if cached_response:
-        logger.info(f"Using cached response for prompt: {prompt}")
-        return cached_response
-    response = query_deepseek_api(prompt)
-    if response:
-        save_to_cache(cache_key, response)
-    return response
 
 
 def evaluate_resolution(

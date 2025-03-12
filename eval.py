@@ -25,7 +25,7 @@ from train import (
     format_reward,
     java_markdown_reward,
 )
-from src.deepseek_sft_data import cached_query_deepseek_api
+from src.utils import cached_query_deepseek_api
 
 open("eval.log", "w", encoding="utf-8").close()  # pylint: disable=consider-using-with
 logger.add("eval.log", backtrace=True, diagnose=True)
