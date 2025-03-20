@@ -22,17 +22,26 @@ list of conflict file IDs.
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
+import os
 import shutil
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import pandas as pd
 from git import GitCommandError, Repo
 from loguru import logger
 from tqdm import tqdm
 import timeout_decorator
-
 from find_merges import get_repo, get_merges
-from utils import get_num_workers
+
+
+def get_num_workers(n_threads: Optional[int] = None) -> int:
+    """Get the number of workers for parallel processing."""
+    if n_threads is not None and n_threads > 0:
+        return n_threads
+    os_cpu_count = os.cpu_count()
+    if os_cpu_count is None:
+        return 1
+    return os_cpu_count - 1
 
 
 logger.add("run.log", backtrace=True, diagnose=True)
@@ -272,7 +281,7 @@ def main():  # pylint: disable=too-many-statements
     (output_dir / "conflict_files/cache").mkdir(parents=True, exist_ok=True)
 
     repos_df = pd.read_csv(args.repos)
-    num_workers = num_workers = get_num_workers(args.n_threads)
+    num_workers = get_num_workers(args.n_threads)
 
     # Ensure deterministic order of repositories
     repos_df = repos_df.sort_values(by="repository")
