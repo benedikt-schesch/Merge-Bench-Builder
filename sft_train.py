@@ -28,11 +28,22 @@ os.environ["WANDB_PROJECT"] = "LLMerge-SFT"
 
 def train_sft(
     dataset_path: Path,
+    train_args,
     output_dir: Path = Path("outputs"),
 ):
     """Train a model using Supervised Fine-Tuning."""
     # Load dataset
-    output_dir = output_dir / MODEL_NAME / "sft_model"
+    output_dir = (
+        output_dir
+        / MODEL_NAME
+        / (
+            f"sft_model_"
+            f"lr{train_args.lr}_"
+            f"epochs{train_args.epochs}_"
+            f"wd{train_args.weight_decay}_"
+            f"{train_args.lr_scheduler_type}"
+        )
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Loading dataset from {dataset_path}...")
     dataset = load_from_disk(dataset_path)
@@ -69,14 +80,14 @@ def train_sft(
         per_device_train_batch_size=2,
         gradient_accumulation_steps=4,
         warmup_steps=5,
-        num_train_epochs=2,
-        learning_rate=1e-4,
+        num_train_epochs=train_args.epochs,
+        learning_rate=train_args.lr,
         fp16=not is_bfloat16_supported(),
         bf16=is_bfloat16_supported(),
         logging_steps=1,
         optim="adamw_8bit",
-        weight_decay=0.01,
-        lr_scheduler_type="linear",
+        weight_decay=train_args.weight_decay,
+        lr_scheduler_type=train_args.lr_scheduler_type,
         seed=3407,
         output_dir="outputs",
         report_to="wandb",
@@ -126,9 +137,34 @@ if __name__ == "__main__":
         default="outputs",
         help="Directory to save the trained model",
     )
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=1e-4,
+        help="Learning Rate",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=2,
+        help="Epochs to train for",
+    )
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        default=0.01,
+        help="Weight Decay",
+    )
+    parser.add_argument(
+        "--lr_scheduler_type",
+        type=str,
+        default="linear",
+        help="LR Scheduler Type",
+    )
     args = parser.parse_args()
 
     train_sft(
         dataset_path=args.dataset,
+        train_args=args,
         output_dir=Path(args.output_dir),
     )
