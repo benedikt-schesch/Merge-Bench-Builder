@@ -15,6 +15,7 @@ SYSTEM_PROMPT = (
 )
 
 MAX_SEQUENCE_LENGTH = MAX_OUTPUT_LENGTH + MAX_PROMPT_LENGTH + len(SYSTEM_PROMPT)
+MAX_SEQUENCE_LENGTH_SFT = 3 * MAX_OUTPUT_LENGTH + MAX_PROMPT_LENGTH + len(SYSTEM_PROMPT)
 
 QUERY_PROMPT = (
     "You are a semantic merge conflict resolution expert. Below is a snippet of code "

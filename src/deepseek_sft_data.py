@@ -10,7 +10,7 @@ from datasets import load_from_disk, Dataset
 from transformers import AutoTokenizer
 from loguru import logger
 from utils import extract_code_block, normalize_java_code, cached_query_deepseek_api
-from variables import MAX_SEQUENCE_LENGTH, MODEL_NAME, SYSTEM_PROMPT
+from variables import MAX_SEQUENCE_LENGTH_SFT, MODEL_NAME, SYSTEM_PROMPT
 
 # Initialize tokenizer
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
@@ -102,7 +102,7 @@ def process_dataset(
                 text = res["text"]
                 # Filter out samples that exceed the max sequence length.
                 tokens = tokenizer(text, truncation=False, add_special_tokens=False)
-                if len(tokens["input_ids"]) <= MAX_SEQUENCE_LENGTH:
+                if len(tokens["input_ids"]) <= MAX_SEQUENCE_LENGTH_SFT:
                     results.append(res)
                 else:
                     logger.info("Skipping example due to exceeding max sequence length")

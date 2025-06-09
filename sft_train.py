@@ -18,7 +18,7 @@ from trl import SFTTrainer
 
 from src.variables import (
     MODEL_NAME,
-    MAX_SEQUENCE_LENGTH,
+    MAX_SEQUENCE_LENGTH_SFT,
     LORA_RANK,
 )
 
@@ -52,7 +52,7 @@ def train_sft(
     print(f"Loading model {MODEL_NAME}...")
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=MODEL_NAME,
-        max_seq_length=MAX_SEQUENCE_LENGTH,
+        max_seq_length=MAX_SEQUENCE_LENGTH_SFT,
         load_in_4bit=True,
         max_lora_rank=LORA_RANK,
     )
@@ -100,7 +100,7 @@ def train_sft(
         tokenizer=tokenizer,
         train_dataset=dataset,
         dataset_text_field="text",
-        max_seq_length=MAX_SEQUENCE_LENGTH,
+        max_seq_length=MAX_SEQUENCE_LENGTH_SFT,
         dataset_num_proc=2,
         packing=False,  # Can make training 5x faster for short sequences.
     )
