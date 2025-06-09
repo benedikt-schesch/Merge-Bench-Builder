@@ -40,8 +40,20 @@ wait_for_gpu() {
     fi
 }
 
+# Function to wait for evaluation jobs (4 jobs per GPU)
+wait_for_eval_gpu() {
+    local max_jobs=$((${#USE_GPUS[@]} * 4))  # 4 jobs per GPU
+    if [ $eval_job_count -ge $max_jobs ]; then
+        wait -n  # Wait for any background job to finish
+        ((eval_job_count--))
+    fi
+}
+
 echo "Starting SFT training with all parameter combinations..."
 echo "Total GPUs available: ${#USE_GPUS[@]}"
+
+# Array to store all model directories for evaluation
+model_dirs=()
 
 # Generate all combinations and run training
 for lr in "${LR[@]}"; do
@@ -54,6 +66,9 @@ for lr in "${LR[@]}"; do
 
                 # Check if output folder already exists
                 output_dir="outputs/unsloth/DeepSeek-R1-Distill-Qwen-14B/sft_model_lr${lr_formatted}_epochs${epochs}_wd${wd_formatted}_${sched}/final_model"
+
+                # Add to model directories for evaluation
+                model_dirs+=("$output_dir")
 
                 if [ -d "$output_dir" ]; then
                     echo "Skipping training: LR=$lr, WD=$wd, Scheduler=$sched, Epochs=$epochs - output already exists"
@@ -91,8 +106,58 @@ for lr in "${LR[@]}"; do
     done
 done
 
-# Wait for all remaining jobs to complete
+# Wait for all remaining training jobs to complete
 echo "Waiting for all training jobs to complete..."
 wait
 
 echo "All SFT training jobs completed!"
+
+# Reset counters for evaluation
+eval_job_count=0
+eval_gpu_index=0
+
+echo ""
+echo "Starting model evaluation..."
+echo "Total models to evaluate: ${#model_dirs[@]}"
+echo "Running up to 4 evaluations per GPU"
+
+# Run evaluation for all models
+for model_dir in "${model_dirs[@]}"; do
+    # Check if model directory exists
+    if [ ! -d "$model_dir" ]; then
+        echo "Skipping evaluation: Model directory $model_dir does not exist"
+        continue
+    fi
+
+    # Get current GPU (cycling through available GPUs)
+    current_gpu=${USE_GPUS[$eval_gpu_index]}
+
+    echo "Starting evaluation for: $model_dir on GPU $current_gpu"
+
+    # Run evaluation in background on specific GPU
+    CUDA_VISIBLE_DEVICES=$current_gpu python3 eval.py --model_name "$model_dir" &
+
+    # Update counters
+    ((eval_job_count++))
+    ((eval_gpu_index++))
+
+    # Reset GPU index if we've used all GPUs
+    if [ $eval_gpu_index -ge ${#USE_GPUS[@]} ]; then
+        eval_gpu_index=0
+    fi
+
+    # Wait if we've filled all GPU slots (4 jobs per GPU)
+    wait_for_eval_gpu
+
+    # Small delay to avoid overwhelming the system
+    sleep 1
+done
+
+# Wait for all remaining evaluation jobs to complete
+echo "Waiting for all evaluation jobs to complete..."
+wait
+
+echo "All evaluations completed!"
+echo "Summary:"
+echo "- Training jobs: Completed for ${#model_dirs[@]} model configurations"
+echo "- Evaluation jobs: Completed for all available models"
