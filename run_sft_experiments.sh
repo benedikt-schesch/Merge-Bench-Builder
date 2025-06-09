@@ -4,7 +4,7 @@
 LR=(1e-3 1e-4 1e-5)
 WEIGHT_DECAY=(0 0.01)
 SCHEDULER=("linear" "cosine")
-EPOCHS=(1 3 5)
+EPOCHS=(1 3)
 USE_GPUS=(2 3 4 5 6)
 
 # Counter for GPU assignment
