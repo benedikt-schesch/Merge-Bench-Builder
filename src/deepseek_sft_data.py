@@ -73,7 +73,7 @@ def process_example(example: Dict[str, str]) -> Optional[Dict[str, str]]:
     return None
 
 
-def process_dataset(
+def process_dataset(  # pylint: disable=too-many-locals
     dataset_path: Path,
     limit: Optional[int] = None,
     parallel_requests: int = 16,
@@ -117,7 +117,7 @@ def process_dataset(
     save_dir = dataset_path.parent / f"{dataset_path.name}_sft"
     final_sft_dataset.save_to_disk(save_dir)
     logger.warning(
-        f"Number of skipped samples due to max sequence length: {max_seq_length_counter}"
+        f"Number of skipped samples due to not exact output match: {max_seq_length_counter}"
     )
     logger.warning(f"Number of skipped samples due to none output: {none_counter}")
     logger.success(f"Number of examples: {len(final_sft_dataset)}")
