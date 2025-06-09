@@ -88,6 +88,7 @@ def process_dataset(
         ds = ds.select(range(min(limit, len(ds))))
 
     max_seq_length_counter = 0
+    none_counter = 0
     results: List[Dict[str, str]] = []
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=parallel_requests
@@ -108,7 +109,8 @@ def process_dataset(
                 else:
                     max_seq_length_counter += 1
                     logger.info("Skipping example due to exceeding max sequence length")
-
+            else:
+                none_counter += 1
     # Create and save the final dataset.
     final_sft_dataset = Dataset.from_list(results)
 
@@ -117,6 +119,7 @@ def process_dataset(
     logger.warning(
         f"Number of skipped samples due to max sequence length: {max_seq_length_counter}"
     )
+    logger.warning(f"Number of skipped samples due to none output: {none_counter}")
     logger.success(f"Number of examples: {len(final_sft_dataset)}")
     logger.success(f"Saved the final SFT dataset to {save_dir}")
 
