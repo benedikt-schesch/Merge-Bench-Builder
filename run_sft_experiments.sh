@@ -11,6 +11,27 @@ USE_GPUS=(2 3 4 5 6)
 gpu_index=0
 job_count=0
 
+# Function to format learning rate for folder names
+format_lr() {
+    local lr=$1
+    case $lr in
+        "1e-3") echo "0.001" ;;
+        "1e-4") echo "0.0001" ;;
+        "1e-5") echo "1e-05" ;;  # Keep scientific notation as seen in examples
+        *) echo $lr ;;
+    esac
+}
+
+# Function to format weight decay for folder names
+format_wd() {
+    local wd=$1
+    if [ "$wd" == "0" ]; then
+        echo "0.0"
+    else
+        echo $wd
+    fi
+}
+
 # Function to wait for background jobs if we've reached GPU limit
 wait_for_gpu() {
     if [ $job_count -ge ${#USE_GPUS[@]} ]; then
@@ -27,6 +48,18 @@ for lr in "${LR[@]}"; do
     for wd in "${WEIGHT_DECAY[@]}"; do
         for sched in "${SCHEDULER[@]}"; do
             for epochs in "${EPOCHS[@]}"; do
+                # Format parameters for folder name
+                lr_formatted=$(format_lr $lr)
+                wd_formatted=$(format_wd $wd)
+
+                # Check if output folder already exists
+                output_dir="outputs/unsloth/DeepSeek-R1-Distill-Qwen-14B/sft_model_lr${lr_formatted}_epochs${epochs}_wd${wd_formatted}_${sched}/final_model"
+
+                if [ -d "$output_dir" ]; then
+                    echo "Skipping training: LR=$lr, WD=$wd, Scheduler=$sched, Epochs=$epochs - output already exists"
+                    continue
+                fi
+
                 # Get current GPU
                 current_gpu=${USE_GPUS[$gpu_index]}
 
