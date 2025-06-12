@@ -102,19 +102,16 @@ echo "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |" >> "$MD"
 # Rows, bold best
 for dir in "${model_dirs[@]}"; do
   lf="$ROOT/$dir/eval.log"; [[ -f "$lf" ]] || continue
-  # parse params from directory name
   entry=$(basename "$(dirname "$dir")")
   lr_val=${entry#*lr}; lr_val=${lr_val%%_*}
   epochs_val=${entry#*epochs}; epochs_val=${epochs_val%%_*}
   wd_val=${entry#*wd}; wd_val=${wd_val%%_*}
   sched_val=${entry##*_}
-  # metrics
   read valid raise semantic correct < <(
     awk '/valid Java markdown format:/ {v=$NF; sub(/%/,"",v)} /raising merge conflict:/ {r=$NF; sub(/%/,"",r)} /semantically correctly resolved merges:/ {s=$NF; sub(/%/,"",s)} /correctly resolved merges:/ {c=$NF; sub(/%/,"",c)} END {print v, r, s, c}' "$lf"
   )
   if [[ "$dir" == "$best_dir" ]]; then
-    # bold metrics
-    echo "${epochs_val} & ${lr_val} & ${wd_val} & ${sched_val} & \\\textbf{${correct}}\\% & \\\textbf{${semantic}}\\% & \\\textbf{${raise}}\\% & \\\textbf{${valid}}\\% \\\\" >> "$TEX"
+    echo "${epochs_val} & ${lr_val} & ${wd_val} & ${sched_val} & \\textbf{${correct}}\\% & \\textbf{${semantic}}\\% & \\textbf{${raise}}\\% & \\textbf{${valid}}\\% \\\\" >> "$TEX"
     echo "| ${epochs_val} | ${lr_val} | ${wd_val} | ${sched_val} | **${correct}%** | **${semantic}%** | **${raise}%** | **${valid}%** |" >> "$MD"
   else
     echo "${epochs_val} & ${lr_val} & ${wd_val} & ${sched_val} & ${correct}\\% & ${semantic}\\% & ${raise}\\% & ${valid}\\% \\\\" >> "$TEX"
@@ -129,4 +126,30 @@ cat << 'EOF' >> "$TEX"
 \end{table}
 EOF
 
-echo "Generated tables with best highlighted: $TEX and $MD"
+# ─── Build PDF & PNG ─────────────────────────────────────────────────────────
+JPEG="$(dirname "$TEX")/results_table_sft.jpg"
+WRAPPER="$(dirname "$TEX")/results_table_sft_wrapper.tex"
+cat << LATEX > "$WRAPPER"
+\documentclass{article}
+\usepackage[margin=5mm]{geometry}
+\usepackage{booktabs}
+\usepackage{pdflscape}
+\pagestyle{empty}
+\begin{document}
+\begin{landscape}
+\input{$TEX}
+\end{landscape}
+\end{document}
+LATEX
+
+echo "Generating PDF and JPEG from LaTeX"
+pdflatex -output-directory "$(dirname "$TEX")" "$WRAPPER"
+PDFWRAP="$(dirname "$TEX")/results_table_sft_wrapper.pdf"
+convert -density 300 "$PDFWRAP" -quality 90 "$JPEG"
+
+echo "Cleaning up auxiliary files"
+rm -f "$(dirname "$TEX")"/*.aux "$(dirname "$TEX")"/*.log "$(dirname "$TEX")"/*.out
+rm -f "$WRAPPER"
+mv "$(dirname "$TEX")/results_table_sft_wrapper.pdf" "$(dirname "$TEX")/results_table_sft.pdf"
+
+echo "✅ Done! Table: $TEX, Markdown: $MD, PDF: $(dirname "$TEX")/results_table_sft.pdf, JPEG: $JPEG"
