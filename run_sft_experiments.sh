@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Parse flags
+SKIP_TRAINING=false
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --skip-training)
+      SKIP_TRAINING=true; shift;;
+    *)
+      echo "Unknown flag: $1"; exit 1;;
+  esac
+done
+
 # Configuration arrays
 LR=(1e-3 1e-4 1e-5)
 WEIGHT_DECAY=(0 0.01)
@@ -7,166 +18,115 @@ SCHEDULER=("linear" "cosine")
 EPOCHS=(1 3)
 USE_GPUS=(2 3 4 5 6)
 
-# Counter for GPU assignment
-gpu_index=0
-job_count=0
-
-# Function to format learning rate for folder names
-format_lr() {
-    local lr=$1
-    case $lr in
-        "1e-3") echo "0.001" ;;
-        "1e-4") echo "0.0001" ;;
-        "1e-5") echo "1e-05" ;;  # Keep scientific notation as seen in examples
-        *) echo $lr ;;
-    esac
-}
-
-# Function to format weight decay for folder names
-format_wd() {
-    local wd=$1
-    if [ "$wd" == "0" ]; then
-        echo "0.0"
-    else
-        echo $wd
-    fi
-}
-
-# Function to wait for background jobs if we've reached GPU limit
-wait_for_gpu() {
-    if [ $job_count -ge ${#USE_GPUS[@]} ]; then
-        wait -n  # Wait for any background job to finish
-        ((job_count--))
-    fi
-}
-
-# Function to wait for evaluation jobs (4 jobs per GPU)
-wait_for_eval_gpu() {
-    local max_jobs=$((${#USE_GPUS[@]} * 4))  # 4 jobs per GPU
-    if [ $eval_job_count -ge $max_jobs ]; then
-        wait -n  # Wait for any background job to finish
-        ((eval_job_count--))
-    fi
-}
-
-echo "Starting SFT training with all parameter combinations..."
-echo "Total GPUs available: ${#USE_GPUS[@]}"
-
-# Array to store all model directories for evaluation
-model_dirs=()
-
-# Generate all combinations and run training
+# Collect all model directories
+declare -a model_dirs
 for lr in "${LR[@]}"; do
-    for wd in "${WEIGHT_DECAY[@]}"; do
-        for sched in "${SCHEDULER[@]}"; do
-            for epochs in "${EPOCHS[@]}"; do
-                # Format parameters for folder name
-                lr_formatted=$(format_lr $lr)
-                wd_formatted=$(format_wd $wd)
-
-                # Check if output folder already exists
-                output_dir="outputs/unsloth/DeepSeek-R1-Distill-Qwen-14B/sft_model_lr${lr_formatted}_epochs${epochs}_wd${wd_formatted}_${sched}/final_model"
-
-                # Add to model directories for evaluation
-                model_dirs+=("$output_dir")
-
-                if [ -d "$output_dir" ]; then
-                    echo "Skipping training: LR=$lr, WD=$wd, Scheduler=$sched, Epochs=$epochs - output already exists"
-                    continue
-                fi
-
-                # Get current GPU
-                current_gpu=${USE_GPUS[$gpu_index]}
-
-                echo "Starting training: LR=$lr, WD=$wd, Scheduler=$sched, Epochs=$epochs on GPU $current_gpu"
-
-                # Run training in background on specific GPU
-                CUDA_VISIBLE_DEVICES=$current_gpu python3 sft_train.py \
-                    --lr $lr \
-                    --weight_decay $wd \
-                    --lr_scheduler_type $sched \
-                    --epochs $epochs &
-
-                # Update counters
-                ((job_count++))
-                ((gpu_index++))
-
-                # Reset GPU index if we've used all GPUs
-                if [ $gpu_index -ge ${#USE_GPUS[@]} ]; then
-                    gpu_index=0
-                fi
-
-                # Wait if we've filled all GPUs
-                wait_for_gpu
-
-                # Small delay to avoid overwhelming the system
-                sleep 2
-            done
-        done
+  for wd in "${WEIGHT_DECAY[@]}"; do
+    for sched in "${SCHEDULER[@]}"; do
+      for epochs in "${EPOCHS[@]}"; do
+        lr_fmt=$(case $lr in 1e-3) echo 0.001;; 1e-4) echo 0.0001;; 1e-5) echo 1e-05;; *) echo $lr;; esac)
+        wd_fmt=$([[ "$wd" == "0" ]] && echo 0.0 || echo $wd)
+        model_dirs+=("outputs/unsloth/DeepSeek-R1-Distill-Qwen-14B/sft_model_lr${lr_fmt}_epochs${epochs}_wd${wd_fmt}_${sched}/final_model")
+      done
     done
+  done
 done
 
-# Wait for all remaining training jobs to complete
-echo "Waiting for all training jobs to complete..."
-wait
+# GPU counters
+gpu_index=0; job_count=0
+eval_gpu_index=0; eval_job_count=0
+# Helpers
+wait_for_gpu() { [[ $job_count -ge ${#USE_GPUS[@]} ]] && wait -n && ((job_count--)); }
+wait_for_eval_gpu() { [[ $eval_job_count -ge $(( ${#USE_GPUS[@]} * 4 )) ]] && wait -n && ((eval_job_count--)); }
 
-echo "All SFT training jobs completed!"
+# ─── Training ───────────────────────────────────────────────────────────────
+if [[ "$SKIP_TRAINING" == false ]]; then
+  echo "Training ${#model_dirs[@]} configs on GPUs: ${USE_GPUS[*]}"
+  for dir in "${model_dirs[@]}"; do
+    [[ -d "$dir" ]] && { echo "Skipped existing: $dir"; continue; }
+    gpu=${USE_GPUS[$gpu_index]}
+    echo "Training $dir on GPU $gpu"
+    CUDA_VISIBLE_DEVICES=$gpu python3 sft_train.py --model_dir "$dir" &
+    ((job_count++)); gpu_index=$(( (gpu_index+1)%${#USE_GPUS[@]} )); wait_for_gpu; sleep 1
+  done
+  wait; echo "Training done"
+else
+  echo "Skipped training (--skip-training)"
+fi
 
-# Reset counters for evaluation
-eval_job_count=0
-eval_gpu_index=0
+# ─── Evaluation ─────────────────────────────────────────────────────────────
+echo "Evaluating on GPUs: ${USE_GPUS[*]}"
+for dir in "${model_dirs[@]}"; do
+  logfile="eval_outputs/repos_reaper_test/test/${dir}/eval.log"
+  if [[ -f "$logfile" ]]; then
+    echo "Log exists: $logfile"
+  elif [[ -d "$dir" ]]; then
+    gpu=${USE_GPUS[$eval_gpu_index]}
+    echo "Evaluating $dir on GPU $gpu"
+    CUDA_VISIBLE_DEVICES=$gpu python3 eval.py --model_name "$dir" &
+    ((eval_job_count++)); eval_gpu_index=$(( (eval_gpu_index+1)%${#USE_GPUS[@]} )); wait_for_eval_gpu; sleep 1
+  else
+    echo "Missing dir, skipping eval: $dir"
+  fi
+done
+wait; echo "Evaluation done"
 
-echo ""
-echo "Starting model evaluation..."
-echo "Total models to evaluate: ${#model_dirs[@]}"
-echo "Running up to 4 evaluations per GPU"
+# ─── Table Generation ───────────────────────────────────────────────────────
+ROOT="eval_outputs/repos_reaper_test/test"
+TEX="tables/results_table_sft.tex"
+MD="tables/results_table_sft.md"
+mkdir -p "$(dirname "$TEX")" "$(dirname "$MD")"
 
-# Run evaluation for all models
-for model_dir in "${model_dirs[@]}"; do
-    # Define the evaluation log file path based on the model directory
-    eval_log_file="eval_outputs/repos_reaper_test/test/${model_dir}/eval.log"
-
-    # Check if the evaluation log file already exists
-    if [ -f "$eval_log_file" ]; then
-        echo "Skipping evaluation: Log file already exists at $eval_log_file"
-        continue
-    fi
-
-    # Check if model directory exists
-    if [ ! -d "$model_dir" ]; then
-        echo "Skipping evaluation: Model directory $model_dir does not exist"
-        continue
-    fi
-
-    # Get current GPU (cycling through available GPUs)
-    current_gpu=${USE_GPUS[$eval_gpu_index]}
-
-    echo "Starting evaluation for: $model_dir on GPU $current_gpu"
-
-    # Run evaluation in background on specific GPU
-    CUDA_VISIBLE_DEVICES=$current_gpu python3 eval.py --model_name "$model_dir" &
-
-    # Update counters
-    ((eval_job_count++))
-    ((eval_gpu_index++))
-
-    # Reset GPU index if we've used all GPUs
-    if [ $eval_gpu_index -ge ${#USE_GPUS[@]} ]; then
-        eval_gpu_index=0
-    fi
-
-    # Wait if we've filled all GPU slots (4 jobs per GPU)
-    wait_for_eval_gpu
-
-    # Small delay to avoid overwhelming the system
-    sleep 1
+# Determine best config by 'correct merges'
+best=0; best_dir=""
+for dir in "${model_dirs[@]}"; do
+  lf="$ROOT/$dir/eval.log"; [[ -f "$lf" ]] || continue
+  val=$(awk '/correctly resolved merges:/ {c=$NF; sub(/%/,"",c)} END {print c+0}' "$lf")
+  (( $(echo "$val > $best" | bc -l) )) && best=$val && best_dir=$dir
 done
 
-# Wait for all remaining evaluation jobs to complete
-echo "Waiting for all evaluation jobs to complete..."
-wait
+# LaTeX header
+cat << 'EOF' > "$TEX"
+\begin{table}[ht]
+\centering
+\begin{tabular}{l l l l r r r r}
+\toprule
+Epochs & LR & Weight decay & Scheduler & Correct merges & Semantic merges & Raising conflict & Valid Java markdown \\
+\midrule
+EOF
 
-echo "All evaluations completed!"
-echo "Summary:"
-echo "- Training jobs: Completed for ${#model_dirs[@]} model configurations"
-echo "- Evaluation jobs: Completed for all available models"
+# Markdown header
+echo "| Epochs | LR | Weight decay | Scheduler | Correct merges | Semantic merges | Raising conflict | Valid Java markdown |" > "$MD"
+echo "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |" >> "$MD"
+
+# Rows, bold best
+for dir in "${model_dirs[@]}"; do
+  lf="$ROOT/$dir/eval.log"; [[ -f "$lf" ]] || continue
+  # parse params from directory name
+  entry=$(basename "$(dirname "$dir")")
+  lr_val=${entry#*lr}; lr_val=${lr_val%%_*}
+  epochs_val=${entry#*epochs}; epochs_val=${epochs_val%%_*}
+  wd_val=${entry#*wd}; wd_val=${wd_val%%_*}
+  sched_val=${entry##*_}
+  # metrics
+  read valid raise semantic correct < <(
+    awk '/valid Java markdown format:/ {v=$NF; sub(/%/,"",v)} /raising merge conflict:/ {r=$NF; sub(/%/,"",r)} /semantically correctly resolved merges:/ {s=$NF; sub(/%/,"",s)} /correctly resolved merges:/ {c=$NF; sub(/%/,"",c)} END {print v, r, s, c}' "$lf"
+  )
+  if [[ "$dir" == "$best_dir" ]]; then
+    # bold metrics
+    echo "${epochs_val} & ${lr_val} & ${wd_val} & ${sched_val} & \\\textbf{${correct}}\\% & \\\textbf{${semantic}}\\% & \\\textbf{${raise}}\\% & \\\textbf{${valid}}\\% \\\\" >> "$TEX"
+    echo "| ${epochs_val} | ${lr_val} | ${wd_val} | ${sched_val} | **${correct}%** | **${semantic}%** | **${raise}%** | **${valid}%** |" >> "$MD"
+  else
+    echo "${epochs_val} & ${lr_val} & ${wd_val} & ${sched_val} & ${correct}\\% & ${semantic}\\% & ${raise}\\% & ${valid}\\% \\\\" >> "$TEX"
+    echo "| ${epochs_val} | ${lr_val} | ${wd_val} | ${sched_val} | ${correct}% | ${semantic}% | ${raise}% | ${valid}% |" >> "$MD"
+  fi
+done
+
+cat << 'EOF' >> "$TEX"
+\bottomrule
+\end{tabular}
+\caption{Merge-resolution performance across configurations.}
+\end{table}
+EOF
+
+echo "Generated tables with best highlighted: $TEX and $MD"
