@@ -123,6 +123,15 @@ echo "Running up to 4 evaluations per GPU"
 
 # Run evaluation for all models
 for model_dir in "${model_dirs[@]}"; do
+    # Define the evaluation log file path based on the model directory
+    eval_log_file="eval_outputs/repos_reaper_test/test/${model_dir}/eval.log"
+
+    # Check if the evaluation log file already exists
+    if [ -f "$eval_log_file" ]; then
+        echo "Skipping evaluation: Log file already exists at $eval_log_file"
+        continue
+    fi
+
     # Check if model directory exists
     if [ ! -d "$model_dir" ]; then
         echo "Skipping evaluation: Model directory $model_dir does not exist"
