@@ -52,9 +52,11 @@ def get_merge_base(repo: Repo, c1: Commit, c2: Commit) -> Optional[Commit]:
     Compute the nearest common ancestor (merge base) of two commits.
     If no common ancestor exists, return None.
     If the merge base is one of the parents, that is noted separately.
+    Returns None if both commits are the same (degenerate merge case).
     """
     if c1.hexsha == c2.hexsha:
-        raise RuntimeError(f"Same commit passed twice: {c1.hexsha}")
+        logger.warning(f"Degenerate merge detected: both parents are the same commit {c1.hexsha}")
+        return None
     h1 = list(repo.iter_commits(c1))
     h1.reverse()
     h2 = list(repo.iter_commits(c2))
@@ -160,6 +162,13 @@ def collect_branch_merges(  # pylint: disable=too-many-locals
                 continue
             written_shas.add(commit.hexsha)
             p1, p2 = commit.parents
+            
+            # Skip degenerate merges where both parents are the same
+            if p1.hexsha == p2.hexsha:
+                logger.debug(f"Skipping degenerate merge {commit.hexsha} in {repo_slug}: both parents are identical")
+                written_shas.remove(commit.hexsha)  # Remove from written_shas since we're skipping it
+                continue
+                
             base = get_merge_base(repo, p1, p2)
             if base is None:
                 notes = "two initial commits"
