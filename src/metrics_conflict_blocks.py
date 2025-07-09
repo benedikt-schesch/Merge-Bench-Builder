@@ -207,6 +207,11 @@ def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None
     
     # Group by repository and create summary
     repo_summary = []
+    
+    # Debug: Check what repositories we found
+    unique_repos = df['repository'].value_counts()
+    logger.info(f"Found repositories: {unique_repos.to_dict()}")
+    
     for repo, repo_df in df.groupby('repository'):
         if pd.isna(repo):
             repo = "UNKNOWN"
@@ -228,9 +233,20 @@ def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None
             'selection_rate': selected_conflicts / total_conflicts if total_conflicts > 0 else 0.0
         })
     
+    # Check if we have any repository data
+    if not repo_summary:
+        logger.warning("No repository data found - falling back to basic summary")
+        create_basic_repository_summary(df, args)
+        return
+    
     # Create summary DataFrame and save
     summary_df = pd.DataFrame(repo_summary)
-    summary_df = summary_df.sort_values('selected_conflicts', ascending=False)
+    
+    # Only sort if we have the column
+    if 'selected_conflicts' in summary_df.columns:
+        summary_df = summary_df.sort_values('selected_conflicts', ascending=False)
+    else:
+        logger.warning("selected_conflicts column not found in summary DataFrame")
     
     # Auto-generate output path if not provided
     if args.repository_summary_csv:
