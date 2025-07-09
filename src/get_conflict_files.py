@@ -49,6 +49,19 @@ logger.add("run.log", backtrace=True, diagnose=True)
 WORKING_DIR = Path(".workdir")
 
 
+def get_file_extension(language: str) -> str:
+    """Get the file extension for a given programming language."""
+    language_extensions = {
+        "java": ".java",
+        "python": ".py",
+        "javascript": ".js",
+        "typescript": ".ts",
+        "cpp": ".cpp",
+        "csharp": ".cs",
+    }
+    return language_extensions.get(language.lower(), ".java")
+
+
 def concatenate_csvs(input_path: Path) -> pd.DataFrame:
     """
     Finds all CSV files in the given directory and its subdirectories, concatenates them,
@@ -129,6 +142,7 @@ def reproduce_merge_and_extract_conflicts(
     merge_id: int,
     conflict_cache_folder: Path,
     resolved_merge_cache_folder: Path,
+    file_extension: str = ".java",
 ) -> List[str]:
     """
     Checkout left_sha, merge right_sha.
@@ -172,7 +186,7 @@ def reproduce_merge_and_extract_conflicts(
         for line in status_output.splitlines():
             if line.startswith("UU "):
                 path_part = line[3:].strip()
-                if path_part.endswith(".java"):
+                if path_part.endswith(file_extension):
                     conflict_files.append(Path(path_part))
 
     result: List[str] = []
@@ -220,7 +234,7 @@ def collect_merges(
     return merges
 
 
-def process_merge(merge_row, output_dir: Path) -> tuple:
+def process_merge(merge_row, output_dir: Path, file_extension: str = ".java") -> tuple:
     """
     Step 2: Process a single merge to extract conflict files.
     """
@@ -239,6 +253,7 @@ def process_merge(merge_row, output_dir: Path) -> tuple:
             merge_id=merge_id,
             conflict_cache_folder=conflict_cache_folder,
             resolved_merge_cache_folder=resolved_merge_cache_folder,
+            file_extension=file_extension,
         )
         conflict_str = ";".join(conflicts)
         shutil.rmtree(WORKING_DIR / f"{repo_slug}_merge_{merge_id}", ignore_errors=True)
@@ -327,6 +342,13 @@ def main():
         default=100,
         help="Maximum number of merges to process per repository (default: 100)",
     )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="java",
+        choices=["java", "python", "javascript", "typescript", "cpp", "csharp"],
+        help="Programming language to filter conflict files (default: java)",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -380,6 +402,10 @@ def main():
     all_merges_df["merge_idx"] = range(0, len(all_merges_df))
     all_merges_df.set_index("merge_idx", inplace=True)
 
+    # Get file extension based on language
+    file_extension = get_file_extension(args.language)
+    logger.info(f"Processing conflicts for {args.language} files ({file_extension})")
+
     # STEP 2: Process each merge in parallel to extract conflict files
     logger.info(
         f"Step 2: Processing {len(all_merges_df)} merges for "
@@ -389,7 +415,7 @@ def main():
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         futures_dict = {
-            executor.submit(process_merge, merge_row, output_dir): merge_id
+            executor.submit(process_merge, merge_row, output_dir, file_extension): merge_id
             for merge_id, merge_row in all_merges_df.iterrows()
         }
 
