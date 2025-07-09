@@ -383,7 +383,7 @@ def main():
         futures_by_index = sorted([(index, future) for future, index in tasks.items()])
         ordered_futures = [f for _, f in futures_by_index]
 
-        for future in tqdm(as_completed(tasks)):
+        for future in tqdm(as_completed(tasks), total=len(repos_df), desc="Collecting merges"):
             result.append(future.result())
 
     # Combine all merge CSVs
