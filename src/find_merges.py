@@ -318,6 +318,7 @@ def get_merges(  # pylint: disable=too-many-branches
       - otherwise collect additional merges until reaching MAX_NUM_MERGES
       - write out the combined result
     """
+    existing_df = None  # Initialize to avoid UnboundLocalError
     full_results_path = out_dir / f"{repo_slug}.csv"
     # Load existing results (if any)
     if full_results_path.exists():
