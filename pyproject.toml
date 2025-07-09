@@ -1,24 +1,15 @@
 [project]
-name = "llmerge"
+name = "merge-bench-builder"
 version = "0.1.0"
-description = "Merging using LLMs"
+description = "Dataset construction for merge conflict resolution benchmarks"
 readme = "README.md"
 requires-python = ">=3.12.0"
 dependencies = [
     "gitpython>=3.1.44",
     "loguru>=0.7.3",
-    "matplotlib>=3.10.1",
-    "mypy>=1.15.0",
     "pandas>=2.2.3",
-    "pre-commit>=4.1.0",
-    "pylint>=3.3.4",
-    "ruff>=0.9.9",
     "timeout-decorator>=0.5.0",
     "tqdm>=4.67.1",
-    "unsloth>=2025.3.18",
-    "uv>=0.6.6",
-    "vllm==0.7.3",
-    "wandb>=0.19.8",
 ]
 
 [tool.ruff]
@@ -62,6 +53,4 @@ line-ending = "auto"
 exclude = [
     'repos/',
     '.venv',
-    'train.py',
-    'eval.py',
 ]

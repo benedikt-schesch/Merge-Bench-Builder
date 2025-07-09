@@ -21,6 +21,8 @@ unsloth_compiled_cache/
 debug.txt
 grpo_trainer_lora_model
 query_cache/
+*.gz
+input_data/repos_reaper.csv
 
 # Compiled class file
 *.class
@@ -102,3 +104,4 @@ docs/_build/
 TAGS
 
 !JSCover/**
+input_data/repos_reaper.csv

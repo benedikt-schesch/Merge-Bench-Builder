@@ -261,8 +261,42 @@ def process_merge(merge_row, output_dir: Path) -> tuple:
     return merge_id, ""
 
 
+def clone_single_repository(repo_slug: str) -> str:
+    """
+    Clone a single repository. Used for parallel processing.
+    Returns the repo_slug for tracking purposes.
+    """
+    try:
+        get_repo(repo_slug, log=True)
+        return repo_slug
+    except Exception as e:
+        logger.error(f"Failed to clone {repo_slug}: {e}")
+        return f"FAILED: {repo_slug}"
+
+
+def clone_all_repositories(repos_df: pd.DataFrame, num_workers: int) -> None:
+    """
+    Step 0: Clone all repositories in parallel with progress bar.
+    This ensures all repositories are available locally before processing begins.
+    """
+    logger.info(f"Step 0: Cloning {len(repos_df)} repositories using {num_workers} threads...")
+    
+    repo_slugs = repos_df["repository"].tolist()
+    
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        # Submit all cloning tasks
+        futures = {executor.submit(clone_single_repository, repo_slug): repo_slug 
+                  for repo_slug in repo_slugs}
+        
+        # Process results with progress bar
+        for future in tqdm(as_completed(futures), total=len(repo_slugs), desc="Cloning repos"):
+            result = future.result()
+            if result.startswith("FAILED:"):
+                logger.warning(f"Cloning failed for {result[7:]}")
+
+
 def main():
-    """Main function with two steps: collect merges, then extract conflict files."""
+    """Main function with three steps: clone repositories, collect merges, then extract conflict files."""
     parser = argparse.ArgumentParser(description="Extract conflict files from merges.")
     parser.add_argument(
         "--repos",
@@ -304,6 +338,9 @@ def main():
 
     # Ensure deterministic order of repositories
     repos_df = repos_df.sort_values(by="repository")
+
+    # STEP 0: Clone all repositories first
+    clone_all_repositories(repos_df, num_workers)
 
     # STEP 1: Collect all merges in parallel
     logger.info(
