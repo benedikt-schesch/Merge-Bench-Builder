@@ -146,6 +146,134 @@ def functional_equality(left: List[str], right: List[str]) -> bool:
     return normalize(left) == normalize(right)
 
 
+def load_conflict_files_mapping(conflict_files_csv_path: Path) -> pd.DataFrame:
+    """Load the conflict_files.csv to map merge IDs to repositories."""
+    try:
+        df = pd.read_csv(conflict_files_csv_path)
+        return df
+    except Exception as e:
+        logger.warning(f"Could not load conflict_files.csv from {conflict_files_csv_path}: {e}")
+        return pd.DataFrame()
+
+
+def extract_merge_id_from_conflict_id(conflict_id: str) -> str:
+    """Extract merge ID from conflict ID (e.g., '123-0' -> '123')."""
+    return conflict_id.split('-')[0]
+
+
+def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None:
+    """Generate a repository-level summary CSV file."""
+    
+    # Auto-detect conflict_files.csv path if not provided
+    if args.conflict_files_csv:
+        conflict_files_csv_path = Path(args.conflict_files_csv)
+    else:
+        # Try to find it in the parent directories
+        possible_paths = [
+            input_dir.parent / "conflict_files.csv",
+            input_dir.parent.parent / "conflict_files.csv",
+        ]
+        conflict_files_csv_path = None
+        for path in possible_paths:
+            if path.exists():
+                conflict_files_csv_path = path
+                break
+    
+    if not conflict_files_csv_path or not conflict_files_csv_path.exists():
+        logger.warning("Could not find conflict_files.csv - repository summary will not include repository names")
+        # Create a basic summary without repository mapping
+        create_basic_repository_summary(df, args)
+        return
+    
+    # Load the mapping from merge IDs to repositories
+    conflict_files_df = load_conflict_files_mapping(conflict_files_csv_path)
+    if conflict_files_df.empty:
+        logger.warning("conflict_files.csv is empty - creating basic summary")
+        create_basic_repository_summary(df, args)
+        return
+    
+    # Extract merge IDs from conflict IDs and map to repositories
+    df['merge_id'] = df['conflict_id'].apply(extract_merge_id_from_conflict_id)
+    
+    # Create mapping from merge_id to repository
+    merge_to_repo = {}
+    for _, row in conflict_files_df.iterrows():
+        merge_idx = row.name if 'merge_idx' in conflict_files_df.columns or conflict_files_df.index.name == 'merge_idx' else row.get('merge_idx', row.name)
+        repository = row['repository']
+        merge_to_repo[str(merge_idx)] = repository
+    
+    # Map repositories to conflict data
+    df['repository'] = df['merge_id'].map(merge_to_repo)
+    
+    # Group by repository and create summary
+    repo_summary = []
+    for repo, repo_df in df.groupby('repository'):
+        if pd.isna(repo):
+            repo = "UNKNOWN"
+        
+        total_conflicts = len(repo_df)
+        selected_conflicts = repo_df['selected'].sum()
+        failed_max_lines = repo_df['fail_max_lines'].sum()
+        failed_token_count = repo_df['fail_token_count'].sum()
+        failed_incoherent = repo_df['fail_incoherent'].sum()
+        
+        repo_summary.append({
+            'repository': repo,
+            'total_conflicts': total_conflicts,
+            'selected_conflicts': selected_conflicts,
+            'filtered_out_conflicts': total_conflicts - selected_conflicts,
+            'failed_max_lines': failed_max_lines,
+            'failed_token_count': failed_token_count,
+            'failed_incoherent': failed_incoherent,
+            'selection_rate': selected_conflicts / total_conflicts if total_conflicts > 0 else 0.0
+        })
+    
+    # Create summary DataFrame and save
+    summary_df = pd.DataFrame(repo_summary)
+    summary_df = summary_df.sort_values('selected_conflicts', ascending=False)
+    
+    # Auto-generate output path if not provided
+    if args.repository_summary_csv:
+        summary_output_path = Path(args.repository_summary_csv)
+    else:
+        summary_output_path = Path(args.csv_out).parent / "repository_summary.csv"
+    
+    summary_df.to_csv(summary_output_path, index=False, encoding="utf-8")
+    
+    # Log summary statistics
+    total_repos = len(summary_df)
+    repos_with_conflicts = len(summary_df[summary_df['selected_conflicts'] > 0])
+    total_selected = summary_df['selected_conflicts'].sum()
+    
+    logger.info(f"Repository summary written to {summary_output_path}")
+    logger.info(f"Total repositories with conflicts: {total_repos}")
+    logger.info(f"Repositories contributing to final dataset: {repos_with_conflicts}")
+    logger.info(f"Total selected conflicts across all repositories: {total_selected}")
+
+
+def create_basic_repository_summary(df: pd.DataFrame, args) -> None:
+    """Create a basic summary without repository mapping."""
+    total_conflicts = len(df)
+    selected_conflicts = df['selected'].sum()
+    
+    basic_summary = [{
+        'repository': 'ALL_REPOSITORIES',
+        'total_conflicts': total_conflicts,
+        'selected_conflicts': selected_conflicts,
+        'filtered_out_conflicts': total_conflicts - selected_conflicts,
+        'failed_max_lines': df['fail_max_lines'].sum(),
+        'failed_token_count': df['fail_token_count'].sum(),
+        'failed_incoherent': df['fail_incoherent'].sum(),
+        'selection_rate': selected_conflicts / total_conflicts if total_conflicts > 0 else 0.0
+    }]
+    
+    summary_df = pd.DataFrame(basic_summary)
+    summary_output_path = Path(args.csv_out).parent / "repository_summary.csv"
+    summary_df.to_csv(summary_output_path, index=False, encoding="utf-8")
+    
+    logger.info(f"Basic repository summary written to {summary_output_path}")
+
+
 def main():  # pylint: disable=too-many-statements, too-many-locals
     """Main entry point"""
     parser = argparse.ArgumentParser(
@@ -181,6 +309,16 @@ def main():  # pylint: disable=too-many-statements, too-many-locals
         "-keep_trivial_resolution",
         action="store_true",
         help="Filter out conflict blocks with trivial resolutions.",
+    )
+    parser.add_argument(
+        "--conflict_files_csv",
+        type=str,
+        help="Path to conflict_files.csv to map merge IDs to repositories (auto-detected if not provided)",
+    )
+    parser.add_argument(
+        "--repository_summary_csv",
+        type=str,
+        help="Path to output repository summary CSV (auto-generated if not provided)",
     )
     args = parser.parse_args()
 
@@ -315,6 +453,9 @@ def main():  # pylint: disable=too-many-statements, too-many-locals
     logger.info(f"Metrics (with 'selected' column) have been written to {args.csv_out}")
     logger.info(f"Selected conflicts copied to {output_dir}")
     logger.info(f"Number of selected conflicts: {df['selected'].sum()}")
+
+    # Generate repository summary
+    generate_repository_summary(df, args, input_dir)
 
 
 if __name__ == "__main__":
