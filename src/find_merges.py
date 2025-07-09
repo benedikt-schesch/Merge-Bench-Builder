@@ -367,6 +367,7 @@ def get_merges(  # pylint: disable=too-many-branches
 
     if breaked:
         # Save the partial results
+        results_partial_path.parent.mkdir(parents=True, exist_ok=True)
         combined_df.to_csv(results_partial_path, index_label="merge_idx")
         logger.info(f"Partial results saved to {results_partial_path}")
     else:
@@ -376,6 +377,7 @@ def get_merges(  # pylint: disable=too-many-branches
             logger.info(f"Removed partial results file {results_partial_path}")
         # Write out the final DataFrame
         final_results_path = out_dir / f"{repo_slug}.csv"
+        final_results_path.parent.mkdir(parents=True, exist_ok=True)
         combined_df.index.name = "merge_idx"
         combined_df.to_csv(final_results_path, index_label="merge_idx")
 
