@@ -297,10 +297,14 @@ def collect_all_merges(
 
     for ref in filtered_refs:
         if total_merges >= max_num_merges:
+            logger.info(f"Reached max_num_merges limit ({max_num_merges}) for {repo_slug}")
             return pd.DataFrame(rows), True
+        logger.debug(f"Processing branch {ref.path} for {repo_slug}")
         branch_merges = collect_branch_merges(
             repo, ref, repo_slug, written_shas, max_num_merges
         )
+        if branch_merges:
+            logger.debug(f"Found {len(branch_merges)} merges in branch {ref.path} for {repo_slug}")
         rows.extend(branch_merges)
         total_merges += len(branch_merges)
 
