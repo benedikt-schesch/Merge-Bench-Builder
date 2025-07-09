@@ -195,12 +195,34 @@ def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None
     # Extract merge IDs from conflict IDs and map to repositories
     df['merge_id'] = df['conflict_id'].apply(extract_merge_id_from_conflict_id)
     
+    # Debug: Show what merge IDs we extracted
+    unique_extracted_merge_ids = df['merge_id'].unique()
+    logger.info(f"Extracted merge IDs from conflict_ids: {sorted(unique_extracted_merge_ids)[:10]}...")
+    
     # Create mapping from merge_id to repository
     merge_to_repo = {}
+    available_merge_indices = []
+    
     for _, row in conflict_files_df.iterrows():
-        merge_idx = row.name if 'merge_idx' in conflict_files_df.columns or conflict_files_df.index.name == 'merge_idx' else row.get('merge_idx', row.name)
+        merge_idx = row.get('merge_idx', row.name)
         repository = row['repository']
         merge_to_repo[str(merge_idx)] = repository
+        available_merge_indices.append(str(merge_idx))
+    
+    # Debug: Show what merge indices are available in conflict_files.csv
+    logger.info(f"Available merge indices in conflict_files.csv: {sorted(available_merge_indices)}")
+    
+    # Check for overlap
+    extracted_set = set(unique_extracted_merge_ids)
+    available_set = set(available_merge_indices)
+    overlap = extracted_set.intersection(available_set)
+    logger.info(f"Overlap between extracted and available merge IDs: {sorted(overlap)}")
+    
+    if not overlap:
+        logger.warning("No overlap found between conflict IDs and merge indices!")
+        logger.warning("This suggests the conflict_metrics.csv and conflict_files.csv are from different processing runs")
+        logger.warning("Sample conflict_id format: " + str(df['conflict_id'].iloc[0]) if len(df) > 0 else "No conflicts")
+        logger.warning("Sample merge_idx format: " + str(available_merge_indices[0]) if available_merge_indices else "No merge indices")
     
     # Map repositories to conflict data
     df['repository'] = df['merge_id'].map(merge_to_repo)
