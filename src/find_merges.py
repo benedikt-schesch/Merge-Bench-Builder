@@ -200,10 +200,11 @@ def collect_branch_merges(  # pylint: disable=too-many-locals
     return rows
 
 
-def get_filtered_refs(repo: Repo, repo_slug: str) -> List:
+def get_filtered_refs(repo: Repo, repo_slug: str, max_branches: int = 1000) -> List:
     """
     Retrieve filtered branch references (local and remote) for a repository.
     Uses a CSV cache to avoid recomputation. Deduplicates by commit head.
+    Limited to max_branches to control processing time and resource usage.
     """
     filtered_refs_cache_file = (
         CACHE_DIR / f"{repo_slug.replace('/', '_')}_filtered_refs.csv"
@@ -242,6 +243,36 @@ def get_filtered_refs(repo: Repo, repo_slug: str) -> List:
             logger.error(
                 f"Error writing filtered references cache file {filtered_refs_cache_file}: {e}"
             )
+    
+    # Limit the number of branches processed with smart prioritization
+    if len(filtered_refs) > max_branches:
+        logger.info(f"Limiting branches from {len(filtered_refs)} to {max_branches} for {repo_slug}")
+        
+        # Prioritize important branches
+        priority_branches = []
+        regular_branches = []
+        
+        for ref in filtered_refs:
+            branch_name = ref.path.lower()
+            # Prioritize main branches and development branches
+            if any(important in branch_name for important in [
+                'refs/heads/main','refs/heads/mainline', 'refs/heads/master', 'refs/heads/develop', 'refs/heads/dev',
+                'refs/remotes/origin/main', 'refs/remotes/origin/master', 'refs/remotes/origin/mainline',
+                'refs/remotes/origin/develop', 'refs/remotes/origin/dev'
+            ]):
+                priority_branches.append(ref)
+            else:
+                regular_branches.append(ref)
+        
+        # Take all priority branches plus remaining slots from regular branches
+        remaining_slots = max_branches - len(priority_branches)
+        if remaining_slots > 0:
+            filtered_refs = priority_branches + regular_branches[:remaining_slots]
+        else:
+            # If we have more priority branches than max_branches, take all priority branches
+            filtered_refs = priority_branches
+            logger.warning(f"Found {len(priority_branches)} priority branches, exceeding max_branches limit of {max_branches}")
+    
     return filtered_refs
 
 
@@ -291,6 +322,7 @@ def collect_all_merges(
     repo_slug: str,
     existing_shas: Optional[Set[str]] = None,
     max_num_merges: int = 100,
+    max_branches: int = 1000,
 ) -> Tuple[pd.DataFrame, bool]:
     """
     Discover all filtered branch references, find merge commits in each,
@@ -298,7 +330,7 @@ def collect_all_merges(
     merges already found in a previous run (if provided).
     """
     rows: List[Dict[str, str]] = []
-    filtered_refs = get_filtered_refs(repo, repo_slug)
+    filtered_refs = get_filtered_refs(repo, repo_slug, max_branches)
 
     # If we already have some merges, start 'written_shas' with them
     written_shas = existing_shas if existing_shas is not None else set()
@@ -321,7 +353,7 @@ def collect_all_merges(
 
 
 def get_merges(  # pylint: disable=too-many-branches
-    repo: Repo, repo_slug: str, out_dir: Path, max_num_merges: int = 100
+    repo: Repo, repo_slug: str, out_dir: Path, max_num_merges: int = 100, max_branches: int = 1000
 ) -> pd.DataFrame:
     """
     Clone/reuse a local copy of 'org/repo', fetch PR branches,

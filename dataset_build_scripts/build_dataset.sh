@@ -15,6 +15,7 @@ RUN_BUILD=0
 KEEP_FLAG=""
 TEST_SIZE="0.2"
 MAX_NUM_MERGES=100
+MAX_BRANCHES=1000
 LANGUAGE="java"
 
 # Parse flags
@@ -30,6 +31,10 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --max_num_merges)
             MAX_NUM_MERGES="$2"
+            shift
+            ;;
+        --max_branches)
+            MAX_BRANCHES="$2"
             shift
             ;;
         --language)
@@ -65,6 +70,7 @@ echo "RUN_BUILD: $RUN_BUILD"
 echo "KEEP_FLAG: $KEEP_FLAG"
 echo "TEST_SIZE: $TEST_SIZE"
 echo "MAX_NUM_MERGES: $MAX_NUM_MERGES"
+echo "MAX_BRANCHES: $MAX_BRANCHES"
 echo "LANGUAGE: $LANGUAGE"
 
 # Check if required arguments are provided
@@ -86,7 +92,7 @@ if [ $RUN_GET_EXTRACT -eq 1 ]; then
     fi
 
     echo "Running get_conflict_files.py..."
-    python3 src/get_conflict_files.py --repos "$REPOS_DIR" --output_dir "$OUT_DIR" --max_num_merges "$MAX_NUM_MERGES" --language "$LANGUAGE"
+    python3 src/get_conflict_files.py --repos "$REPOS_DIR" --output_dir "$OUT_DIR" --max_num_merges "$MAX_NUM_MERGES" --max_branches "$MAX_BRANCHES" --language "$LANGUAGE"
 
     echo "Running extract_conflict_blocks.py..."
     python3 src/extract_conflict_blocks.py --input_dir "$OUT_DIR/conflict_files" --output_dir "$OUT_DIR/conflict_blocks"

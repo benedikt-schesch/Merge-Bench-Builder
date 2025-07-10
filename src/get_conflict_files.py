@@ -221,7 +221,7 @@ def reproduce_merge_and_extract_conflicts(
 
 
 def collect_merges(
-    repo_slug: str, output_dir: Path, max_num_merges: int
+    repo_slug: str, output_dir: Path, max_num_merges: int, max_branches: int = 1000
 ) -> pd.DataFrame:
     """
     Step 1: Collect merges for a single repository.
@@ -231,7 +231,7 @@ def collect_merges(
     except Exception as e:
         logger.error(f"Error getting repo {repo_slug}: {e}")
         return pd.DataFrame()
-    merges = get_merges(repo, repo_slug, output_dir / "merges", max_num_merges)
+    merges = get_merges(repo, repo_slug, output_dir / "merges", max_num_merges, max_branches)
     return merges
 
 
@@ -350,6 +350,12 @@ def main():
         choices=["java", "python", "javascript", "typescript", "cpp", "csharp"],
         help="Programming language to filter conflict files (default: java)",
     )
+    parser.add_argument(
+        "--max_branches",
+        type=int,
+        default=1000,
+        help="Maximum number of branches to process per repository (default: 1000)",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -375,7 +381,7 @@ def main():
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         tasks = {
             executor.submit(
-                collect_merges, row["repository"], output_dir, args.max_num_merges
+                collect_merges, row["repository"], output_dir, args.max_num_merges, args.max_branches
             ): i
             for i, (_, row) in enumerate(repos_df.iterrows())
         }
