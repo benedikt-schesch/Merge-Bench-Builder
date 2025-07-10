@@ -391,7 +391,7 @@ def get_merges(  # pylint: disable=too-many-branches
 
     # Collect new merges (skipping existing_shas)
     new_df, breaked = collect_all_merges(
-        repo, repo_slug, existing_shas=existing_shas, max_num_merges=max_num_merges
+        repo, repo_slug, existing_shas=existing_shas, max_num_merges=max_num_merges, max_branches= max_branches
     )
 
     if not new_df.empty:
