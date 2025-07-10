@@ -336,11 +336,11 @@ def collect_all_merges(
     written_shas = existing_shas if existing_shas is not None else set()
     total_merges = len(written_shas)
 
-    for ref in filtered_refs:
+    for idx, ref in enumerate(filtered_refs):
         if total_merges >= max_num_merges:
             logger.info(f"Reached max_num_merges limit ({max_num_merges}) for {repo_slug}")
             return pd.DataFrame(rows), True
-        logger.debug(f"Processing branch {ref.path} for {repo_slug}")
+        logger.debug(f"Processing branch {ref.path} for {repo_slug} (branch count: {idx}/{max_branches})")
         branch_merges = collect_branch_merges(
             repo, ref, repo_slug, written_shas, max_num_merges
         )
