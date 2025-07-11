@@ -74,27 +74,51 @@ A toolkit for constructing merge conflict datasets from Git repositories. This t
 ### Language-Specific Dataset Construction
 
 ```bash
+# Build C dataset
+./dataset_build_scripts/build_dataset_c.sh -g -m -b
+
+# Build C++ dataset
+./dataset_build_scripts/build_dataset_cpp.sh -g -m -b
+
+# Build C# dataset
+./dataset_build_scripts/build_dataset_csharp.sh -g -m -b
+
+# Build Java dataset
+./dataset_build_scripts/build_dataset_reaper_java_1000.sh -g -m -b
+
 # Build PHP dataset
 ./dataset_build_scripts/build_dataset_php.sh -g -m -b
 
 # Build Python dataset
 ./dataset_build_scripts/build_dataset_python.sh -g -m -b
 
-# Build C++ dataset
-./dataset_build_scripts/build_dataset_cpp.sh -g -m -b
+# Build Ruby dataset
+./dataset_build_scripts/build_dataset_ruby.sh -g -m -b
 ```
 
 ### Custom Repository Sampling
 
 ```bash
+# Sample C repositories
+python src/sample_reaper_repos.py --language C --n 1200 --start_index 0
+
+# Sample C++ repositories
+python src/sample_reaper_repos.py --language "C++" --n 1200 --start_index 0
+
+# Sample C# repositories
+python src/sample_reaper_repos.py --language "C#" --n 1200 --start_index 0
+
 # Sample Java repositories
 python src/sample_reaper_repos.py --language Java --n 1000 --start_index 0
 
-# Sample Python repositories
-python src/sample_reaper_repos.py --language Python --n 500 --start_index 0
-
 # Sample PHP repositories
 python src/sample_reaper_repos.py --language PHP --n 1200 --start_index 0
+
+# Sample Python repositories
+python src/sample_reaper_repos.py --language Python --n 1200 --start_index 0
+
+# Sample Ruby repositories
+python src/sample_reaper_repos.py --language Ruby --n 1200 --start_index 0
 
 # Sample from custom input file
 python src/sample_reaper_repos.py --input_path input_data/custom_repos.csv --language JavaScript --n 200
@@ -142,9 +166,13 @@ The dataset construction process involves several stages:
 ├── dataset_build_scripts/          # Dataset building scripts
 │   ├── build_dataset.sh           # Main dataset building script
 │   ├── build_dataset_small.sh     # Small test dataset
+│   ├── build_dataset_c.sh         # C dataset builder
 │   ├── build_dataset_cpp.sh       # C++ dataset builder
+│   ├── build_dataset_csharp.sh    # C# dataset builder
 │   ├── build_dataset_php.sh       # PHP dataset builder
 │   ├── build_dataset_python.sh    # Python dataset builder
+│   ├── build_dataset_ruby.sh      # Ruby dataset builder
+│   ├── build_dataset_reaper_java_1000.sh # Java dataset builder
 │   ├── build_dataset_reaper_100.sh # 100 merges per repo
 │   ├── build_dataset_reaper_1000.sh # 1000 merges per repo
 │   └── build_dataset_reaper_test.sh # Test dataset
@@ -167,7 +195,7 @@ The dataset construction process involves several stages:
 ## Configuration
 
 ### Repository Filtering
-- **Language**: Filter by programming language (Java, Python, PHP, C++, JavaScript, etc.)
+- **Language**: Filter by programming language (C, C++, C#, Java, PHP, Python, Ruby, JavaScript, etc.)
 - **Stars**: Minimum star count threshold
 - **Quality metrics**: Architecture, documentation, test coverage scores
 

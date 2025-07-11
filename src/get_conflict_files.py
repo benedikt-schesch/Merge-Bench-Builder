@@ -59,6 +59,8 @@ def get_file_extensions(language: str) -> list[str]:
         "cpp": [".cpp", ".cc", ".cxx", ".h", ".hpp"],
         "csharp": [".cs"],
         "php": [".php"],
+        "ruby": [".rb"],
+        "c": [".c", ".h"],
     }
     return language_extensions.get(language.lower(), [".java"])
 
@@ -348,7 +350,7 @@ def main():
         "--language",
         type=str,
         default="java",
-        choices=["java", "python", "javascript", "typescript", "cpp", "csharp", "php"],
+        choices=["java", "python", "javascript", "typescript", "cpp", "csharp", "php", "ruby", "c"],
         help="Programming language to filter conflict files (default: java)",
     )
     parser.add_argument(
