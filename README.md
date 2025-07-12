@@ -1,7 +1,8 @@
 # Merge-Bench-Builder
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)]
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![CI/CD](https://github.com/scheschb/Merge-Bench-Builder/workflows/CI/badge.svg)](https://github.com/your-username/Merge-Bench-Builder/actions)
 
 A toolkit for constructing merge conflict datasets from Git repositories. This tool helps researchers and developers build comprehensive datasets for studying merge conflict resolution patterns. 🛠️
 
@@ -83,8 +84,18 @@ A toolkit for constructing merge conflict datasets from Git repositories. This t
 # Build C# dataset
 ./dataset_build_scripts/build_dataset_csharp.sh -g -m -b
 
+# Build Go dataset (from GitHub)
+./dataset_build_scripts/build_dataset_go.sh -g -m -b
+# Or use the specific GitHub Go 1000 repos dataset
+./dataset_build_scripts/build_dataset_github_go_1000.sh -g -m -b
+
 # Build Java dataset
 ./dataset_build_scripts/build_dataset_reaper_java_1000.sh -g -m -b
+
+# Build JavaScript dataset (from GitHub)
+./dataset_build_scripts/build_dataset_javascript.sh -g -m -b
+# Or use the specific GitHub JavaScript 1000 repos dataset
+./dataset_build_scripts/build_dataset_github_javascript_1000.sh -g -m -b
 
 # Build PHP dataset
 ./dataset_build_scripts/build_dataset_php.sh -g -m -b
@@ -94,9 +105,17 @@ A toolkit for constructing merge conflict datasets from Git repositories. This t
 
 # Build Ruby dataset
 ./dataset_build_scripts/build_dataset_ruby.sh -g -m -b
+
+# Build Rust dataset (from GitHub)
+./dataset_build_scripts/build_dataset_rust.sh -g -m -b
+
+# Build TypeScript dataset (from GitHub)
+./dataset_build_scripts/build_dataset_typescript.sh -g -m -b
 ```
 
 ### Custom Repository Sampling
+
+#### From Reaper Dataset
 
 ```bash
 # Sample C repositories
@@ -122,6 +141,29 @@ python src/sample_reaper_repos.py --language Ruby --n 1200 --start_index 0
 
 # Sample from custom input file
 python src/sample_reaper_repos.py --input_path input_data/custom_repos.csv --language JavaScript --n 200
+```
+
+#### From GitHub API
+
+```bash
+# Download JavaScript repositories from GitHub (requires GitHub token for better rate limits)
+python src/download_github_repos.py --language javascript --max-results 1200 --exclude-archived
+
+# With GitHub token (recommended)
+python src/download_github_repos.py --token YOUR_GITHUB_TOKEN --language javascript --max-results 1200 --exclude-archived
+
+# Or set GITHUB_TOKEN environment variable
+export GITHUB_TOKEN=your_token_here
+python src/download_github_repos.py --language javascript --max-results 1200 --exclude-archived
+
+# Download other languages from GitHub
+python src/download_github_repos.py --language typescript --max-results 1200 --exclude-archived
+python src/download_github_repos.py --language go --max-results 1200 --exclude-archived
+python src/download_github_repos.py --language rust --max-results 1200 --exclude-archived
+
+# With custom parameters
+python src/download_github_repos.py --language go --max-results 1000 --min-stars 500
+python src/download_github_repos.py --language rust --max-results 800 --min-stars 1000
 ```
 
 ### Script Options
@@ -169,15 +211,20 @@ The dataset construction process involves several stages:
 │   ├── build_dataset_c.sh         # C dataset builder
 │   ├── build_dataset_cpp.sh       # C++ dataset builder
 │   ├── build_dataset_csharp.sh    # C# dataset builder
+│   ├── build_dataset_go.sh        # Go dataset builder
+│   ├── build_dataset_javascript.sh # JavaScript dataset builder
 │   ├── build_dataset_php.sh       # PHP dataset builder
 │   ├── build_dataset_python.sh    # Python dataset builder
 │   ├── build_dataset_ruby.sh      # Ruby dataset builder
-│   ├── build_dataset_reaper_java_1000.sh # Java dataset builder
+│   ├── build_dataset_rust.sh      # Rust dataset builder
+│   ├── build_dataset_typescript.sh # TypeScript dataset builder
 │   ├── build_dataset_reaper_100.sh # 100 merges per repo
 │   ├── build_dataset_reaper_1000.sh # 1000 merges per repo
 │   └── build_dataset_reaper_test.sh # Test dataset
 ├── src/                           # Core source code
 │   ├── build_dataset.py          # Dataset building logic
+│   ├── download_github_repos.py  # GitHub API repository fetcher
+│   ├── download_reaper_dataset.py # Reaper dataset downloader
 │   ├── get_conflict_files.py     # Conflict extraction
 │   ├── find_merges.py            # Merge commit discovery
 │   ├── extract_conflict_blocks.py # Conflict block processing
