@@ -121,25 +121,25 @@ A toolkit for constructing merge conflict datasets from Git repositories. This t
 
 ```bash
 # Sample C repositories
-python src/sample_reaper_repos.py --language C --n 1200 --start_index 0
+python src/sample_reaper_repos.py --language C --n 1000 --start_index 0
 
 # Sample C++ repositories
-python src/sample_reaper_repos.py --language "C++" --n 1200 --start_index 0
+python src/sample_reaper_repos.py --language "C++" --n 1000 --start_index 0
 
 # Sample C# repositories
-python src/sample_reaper_repos.py --language "C#" --n 1200 --start_index 0
+python src/sample_reaper_repos.py --language "C#" --n 1000 --start_index 0
 
 # Sample Java repositories
 python src/sample_reaper_repos.py --language Java --n 1000 --start_index 0
 
 # Sample PHP repositories
-python src/sample_reaper_repos.py --language PHP --n 1200 --start_index 0
+python src/sample_reaper_repos.py --language PHP --n 1000 --start_index 0
 
 # Sample Python repositories
-python src/sample_reaper_repos.py --language Python --n 1200 --start_index 0
+python src/sample_reaper_repos.py --language Python --n 1000 --start_index 0
 
 # Sample Ruby repositories
-python src/sample_reaper_repos.py --language Ruby --n 1200 --start_index 0
+python src/sample_reaper_repos.py --language Ruby --n 1000 --start_index 0
 
 # Sample from custom input file
 python src/sample_reaper_repos.py --input_path input_data/custom_repos.csv --language JavaScript --n 200
