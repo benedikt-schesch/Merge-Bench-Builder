@@ -23,7 +23,7 @@ class GitHubRepoFetcher:
             self.headers["Authorization"] = f"token {token}"
         self.base_url = "https://api.github.com"
 
-    def search_repositories(
+    def search_repositories(  # pylint: disable=too-many-arguments, too-many-locals, too-many-positional-arguments
         self,
         query: str,
         sort: str = "stars",
@@ -62,7 +62,8 @@ class GitHubRepoFetcher:
                     reset_time = int(response.headers.get("X-RateLimit-Reset", 0))
                     sleep_time = max(reset_time - time.time(), 0) + 1
                     logger.warning(
-                        f"Rate limit low ({remaining} remaining). Sleeping for {sleep_time} seconds..."
+                        f"Rate limit low ({remaining} remaining). Sleeping "
+                        "for {sleep_time} seconds..."
                     )
                     time.sleep(sleep_time)
 

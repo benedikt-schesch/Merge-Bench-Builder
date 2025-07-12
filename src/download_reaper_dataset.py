@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 from loguru import logger
 
-repos_csv = "input_data/repos_reaper.csv"
+REPO_CSV = "input_data/repos_reaper.csv"
 
 if __name__ == "__main__":
     urllib.request.urlretrieve(
@@ -47,6 +47,6 @@ if __name__ == "__main__":
     ]
     df = df[~df["repository"].isin(problematic_repos)]
 
-    df.to_csv(repos_csv, index_label="idx")
+    df.to_csv(REPO_CSV, index_label="idx")
 
-    logger.info("Number of repos written to " + repos_csv + " : " + str(len(df)))
+    logger.info("Number of repos written to " + REPO_CSV + " : " + str(len(df)))

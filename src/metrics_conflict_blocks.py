@@ -163,7 +163,9 @@ def extract_merge_id_from_conflict_id(conflict_id: str) -> str:
     return conflict_id.split("-")[0]
 
 
-def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None:
+def generate_repository_summary(  # pylint: disable=too-many-statements, too-many-locals, too-many-branches
+    df: pd.DataFrame, args, input_dir: Path
+) -> None:
     """Generate a repository-level summary CSV file."""
 
     # Auto-detect conflict_files.csv path if not provided
@@ -183,7 +185,8 @@ def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None
 
     if not conflict_files_csv_path or not conflict_files_csv_path.exists():
         logger.warning(
-            "Could not find conflict_files.csv - repository summary will not include repository names"
+            "Could not find conflict_files.csv - repository summary will "
+            "not include repository names"
         )
         # Create a basic summary without repository mapping
         create_basic_repository_summary(df, args)
@@ -229,7 +232,8 @@ def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None
     if not overlap:
         logger.warning("No overlap found between conflict IDs and merge indices!")
         logger.warning(
-            "This suggests the conflict_metrics.csv and conflict_files.csv are from different processing runs"
+            "This suggests the conflict_metrics.csv and conflict_files.csv "
+            "are from different processing runs"
         )
         logger.warning(
             "Sample conflict_id format: " + str(df["conflict_id"].iloc[0])
@@ -377,7 +381,8 @@ def main():  # pylint: disable=too-many-statements, too-many-locals
     parser.add_argument(
         "--conflict_files_csv",
         type=str,
-        help="Path to conflict_files.csv to map merge IDs to repositories (auto-detected if not provided)",
+        help="Path to conflict_files.csv to map merge IDs to repositories "
+        "(auto-detected if not provided)",
     )
     parser.add_argument(
         "--repository_summary_csv",

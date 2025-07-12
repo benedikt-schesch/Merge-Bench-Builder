@@ -168,7 +168,8 @@ def collect_branch_merges(  # pylint: disable=too-many-locals
             # Skip degenerate merges where both parents are the same
             if p1.hexsha == p2.hexsha:
                 logger.debug(
-                    f"Skipping degenerate merge {commit.hexsha} in {repo_slug}: both parents are identical"
+                    f"Skipping degenerate merge {commit.hexsha} in"
+                    "{repo_slug}: both parents are identical"
                 )
                 written_shas.remove(
                     commit.hexsha
@@ -206,7 +207,9 @@ def collect_branch_merges(  # pylint: disable=too-many-locals
     return rows
 
 
-def get_filtered_refs(repo: Repo, repo_slug: str, max_branches: int = 1000) -> List:
+def get_filtered_refs(  # pylint: disable=too-many-locals, too-many-branches
+    repo: Repo, repo_slug: str, max_branches: int = 1000
+) -> List:
     """
     Retrieve filtered branch references (local and remote) for a repository.
     Uses a CSV cache to avoid recomputation. Deduplicates by commit head.
@@ -290,7 +293,8 @@ def get_filtered_refs(repo: Repo, repo_slug: str, max_branches: int = 1000) -> L
             # If we have more priority branches than max_branches, take all priority branches
             filtered_refs = priority_branches
             logger.warning(
-                f"Found {len(priority_branches)} priority branches, exceeding max_branches limit of {max_branches}"
+                f"Found {len(priority_branches)} priority branches, "
+                "exceeding max_branches limit of {max_branches}"
             )
 
     return filtered_refs
