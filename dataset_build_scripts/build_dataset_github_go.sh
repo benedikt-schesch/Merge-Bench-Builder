@@ -1,5 +1,0 @@
-#!/bin/bash
-
-# Build dataset for top 1000 Go repositories from GitHub
-# This script runs all three steps: get conflicts, metrics, and build dataset
-./dataset_build_scripts/build_dataset.sh input_data/repos_github_Go_0_1000.csv output_data/github_go_1000 -g -m -b --language go --max_num_merges 25 --test_size 1.0
