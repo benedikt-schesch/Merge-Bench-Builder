@@ -89,8 +89,10 @@ A toolkit for constructing merge conflict datasets from Git repositories. This t
 # Or use the specific GitHub Go 1000 repos dataset
 ./dataset_build_scripts/build_dataset_github_go_1000.sh -g -m -b
 
-# Build Java dataset
+# Build Java dataset (first 1000 repos)
 ./dataset_build_scripts/build_dataset_reaper_java_1000.sh -g -m -b
+# Build Java dataset (repos 1000-1200)
+./dataset_build_scripts/build_dataset_reaper_java_1000_1200.sh -g -m -b
 
 # Build JavaScript dataset (from GitHub)
 ./dataset_build_scripts/build_dataset_javascript.sh -g -m -b
@@ -220,7 +222,8 @@ The dataset construction process involves several stages:
 │   ├── build_dataset_typescript.sh # TypeScript dataset builder
 │   ├── build_dataset_reaper_100.sh # 100 merges per repo
 │   ├── build_dataset_reaper_1000.sh # 1000 merges per repo
-│   └── build_dataset_reaper_test.sh # Test dataset
+│   ├── build_dataset_reaper_java_1000.sh # Java first 1000 repos
+│   └── build_dataset_reaper_java_1000_1200.sh # Java repos 1000-1200
 ├── src/                           # Core source code
 │   ├── build_dataset.py          # Dataset building logic
 │   ├── download_github_repos.py  # GitHub API repository fetcher
