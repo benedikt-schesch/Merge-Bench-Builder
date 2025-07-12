@@ -30,27 +30,27 @@ echo "Building PHP dataset..."
 ./dataset_build_scripts/build_dataset_php.sh
 
 # JavaScript datasets (both use GitHub data)
-echo "Building JavaScript dataset (GitHub 1200 repos)..."
+echo "Building JavaScript dataset (GitHub 1000 repos)..."
 ./dataset_build_scripts/build_dataset_javascript.sh
 
-# Note: Commenting out the 1000 repos version to avoid duplication
+# Note: The github_javascript script uses the same data
 # echo "Building JavaScript dataset (GitHub 1000 repos)..."
 # ./dataset_build_scripts/build_dataset_github_javascript.sh
 
 # TypeScript dataset
-echo "Building TypeScript dataset..."
+echo "Building TypeScript dataset (GitHub 1000 repos)..."
 ./dataset_build_scripts/build_dataset_typescript.sh
 
 # Go datasets (both use GitHub data)
-echo "Building Go dataset (GitHub 1200 repos)..."
+echo "Building Go dataset (GitHub 1000 repos)..."
 ./dataset_build_scripts/build_dataset_go.sh
 
-# Note: Commenting out the 1000 repos version to avoid duplication
+# Note: The github_go script uses the same data
 # echo "Building Go dataset (GitHub 1000 repos)..."
 # ./dataset_build_scripts/build_dataset_github_go.sh
 
 # Rust dataset
-echo "Building Rust dataset..."
+echo "Building Rust dataset (GitHub 1000 repos)..."
 ./dataset_build_scripts/build_dataset_rust.sh
 
 # Java datasets (commented out as requested)
