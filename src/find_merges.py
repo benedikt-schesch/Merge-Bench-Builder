@@ -55,7 +55,9 @@ def get_merge_base(repo: Repo, c1: Commit, c2: Commit) -> Optional[Commit]:
     Returns None if both commits are the same (degenerate merge case).
     """
     if c1.hexsha == c2.hexsha:
-        logger.warning(f"Degenerate merge detected: both parents are the same commit {c1.hexsha}")
+        logger.warning(
+            f"Degenerate merge detected: both parents are the same commit {c1.hexsha}"
+        )
         return None
     h1 = list(repo.iter_commits(c1))
     h1.reverse()
@@ -162,13 +164,17 @@ def collect_branch_merges(  # pylint: disable=too-many-locals
                 continue
             written_shas.add(commit.hexsha)
             p1, p2 = commit.parents
-            
+
             # Skip degenerate merges where both parents are the same
             if p1.hexsha == p2.hexsha:
-                logger.debug(f"Skipping degenerate merge {commit.hexsha} in {repo_slug}: both parents are identical")
-                written_shas.remove(commit.hexsha)  # Remove from written_shas since we're skipping it
+                logger.debug(
+                    f"Skipping degenerate merge {commit.hexsha} in {repo_slug}: both parents are identical"
+                )
+                written_shas.remove(
+                    commit.hexsha
+                )  # Remove from written_shas since we're skipping it
                 continue
-                
+
             base = get_merge_base(repo, p1, p2)
             if base is None:
                 notes = "two initial commits"
@@ -243,27 +249,39 @@ def get_filtered_refs(repo: Repo, repo_slug: str, max_branches: int = 1000) -> L
             logger.error(
                 f"Error writing filtered references cache file {filtered_refs_cache_file}: {e}"
             )
-    
+
     # Limit the number of branches processed with smart prioritization
     if len(filtered_refs) > max_branches:
-        logger.info(f"Limiting branches from {len(filtered_refs)} to {max_branches} for {repo_slug}")
-        
+        logger.info(
+            f"Limiting branches from {len(filtered_refs)} to {max_branches} for {repo_slug}"
+        )
+
         # Prioritize important branches
         priority_branches = []
         regular_branches = []
-        
+
         for ref in filtered_refs:
             branch_name = ref.path.lower()
             # Prioritize main branches and development branches
-            if any(important in branch_name for important in [
-                'refs/heads/main','refs/heads/mainline', 'refs/heads/master', 'refs/heads/develop', 'refs/heads/dev',
-                'refs/remotes/origin/main', 'refs/remotes/origin/master', 'refs/remotes/origin/mainline',
-                'refs/remotes/origin/develop', 'refs/remotes/origin/dev'
-            ]):
+            if any(
+                important in branch_name
+                for important in [
+                    "refs/heads/main",
+                    "refs/heads/mainline",
+                    "refs/heads/master",
+                    "refs/heads/develop",
+                    "refs/heads/dev",
+                    "refs/remotes/origin/main",
+                    "refs/remotes/origin/master",
+                    "refs/remotes/origin/mainline",
+                    "refs/remotes/origin/develop",
+                    "refs/remotes/origin/dev",
+                ]
+            ):
                 priority_branches.append(ref)
             else:
                 regular_branches.append(ref)
-        
+
         # Take all priority branches plus remaining slots from regular branches
         remaining_slots = max_branches - len(priority_branches)
         if remaining_slots > 0:
@@ -271,8 +289,10 @@ def get_filtered_refs(repo: Repo, repo_slug: str, max_branches: int = 1000) -> L
         else:
             # If we have more priority branches than max_branches, take all priority branches
             filtered_refs = priority_branches
-            logger.warning(f"Found {len(priority_branches)} priority branches, exceeding max_branches limit of {max_branches}")
-    
+            logger.warning(
+                f"Found {len(priority_branches)} priority branches, exceeding max_branches limit of {max_branches}"
+            )
+
     return filtered_refs
 
 
@@ -338,14 +358,20 @@ def collect_all_merges(
 
     for idx, ref in enumerate(filtered_refs):
         if total_merges >= max_num_merges:
-            logger.info(f"Reached max_num_merges limit ({max_num_merges}) for {repo_slug}")
+            logger.info(
+                f"Reached max_num_merges limit ({max_num_merges}) for {repo_slug}"
+            )
             return pd.DataFrame(rows), True
-        logger.debug(f"Processing branch {ref.path} for {repo_slug} (branch count: {idx}/{max_branches})")
+        logger.debug(
+            f"Processing branch {ref.path} for {repo_slug} (branch count: {idx}/{max_branches})"
+        )
         branch_merges = collect_branch_merges(
             repo, ref, repo_slug, written_shas, max_num_merges
         )
         if branch_merges:
-            logger.debug(f"Found {len(branch_merges)} merges in branch {ref.path} for {repo_slug}")
+            logger.debug(
+                f"Found {len(branch_merges)} merges in branch {ref.path} for {repo_slug}"
+            )
         rows.extend(branch_merges)
         total_merges += len(branch_merges)
 
@@ -353,7 +379,11 @@ def collect_all_merges(
 
 
 def get_merges(  # pylint: disable=too-many-branches
-    repo: Repo, repo_slug: str, out_dir: Path, max_num_merges: int = 100, max_branches: int = 1000
+    repo: Repo,
+    repo_slug: str,
+    out_dir: Path,
+    max_num_merges: int = 100,
+    max_branches: int = 1000,
 ) -> pd.DataFrame:
     """
     Clone/reuse a local copy of 'org/repo', fetch PR branches,
@@ -391,7 +421,11 @@ def get_merges(  # pylint: disable=too-many-branches
 
     # Collect new merges (skipping existing_shas)
     new_df, breaked = collect_all_merges(
-        repo, repo_slug, existing_shas=existing_shas, max_num_merges=max_num_merges, max_branches= max_branches
+        repo,
+        repo_slug,
+        existing_shas=existing_shas,
+        max_num_merges=max_num_merges,
+        max_branches=max_branches,
     )
 
     if not new_df.empty:

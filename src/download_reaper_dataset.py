@@ -26,24 +26,24 @@ if __name__ == "__main__":
     )
     with gzip.open("input_data/repos.csv.gz", "rb") as f:
         df = pd.read_csv(BytesIO(f.read()))
-    
+
     # Print language statistics
-    language_counts = df['language'].value_counts()
+    language_counts = df["language"].value_counts()
     logger.info("Repository count by language:")
     for language, count in language_counts.head(15).items():  # Show top 15 languages
         logger.info(f"  {language}: {count}")
     logger.info(f"Total languages: {len(language_counts)}")
     logger.info(f"Total repositories before filtering: {len(df)}")
-    
+
     df = df.replace(to_replace="None", value=np.nan).dropna()
     df["stars"] = df["stars"].astype(int)
 
     # Remove specific repositories that had difficulties in their testing environments
     problematic_repos = [
         "elastic/elasticsearch",
-        "wasabeef/RecyclerViewAnimators", 
+        "wasabeef/RecyclerViewAnimators",
         "android/platform_frameworks_base",
-        "elasticsearch/elasticsearch"
+        "elasticsearch/elasticsearch",
     ]
     df = df[~df["repository"].isin(problematic_repos)]
 

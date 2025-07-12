@@ -152,18 +152,20 @@ def load_conflict_files_mapping(conflict_files_csv_path: Path) -> pd.DataFrame:
         df = pd.read_csv(conflict_files_csv_path)
         return df
     except Exception as e:
-        logger.warning(f"Could not load conflict_files.csv from {conflict_files_csv_path}: {e}")
+        logger.warning(
+            f"Could not load conflict_files.csv from {conflict_files_csv_path}: {e}"
+        )
         return pd.DataFrame()
 
 
 def extract_merge_id_from_conflict_id(conflict_id: str) -> str:
     """Extract merge ID from conflict ID (e.g., '123-0' -> '123')."""
-    return conflict_id.split('-')[0]
+    return conflict_id.split("-")[0]
 
 
 def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None:
     """Generate a repository-level summary CSV file."""
-    
+
     # Auto-detect conflict_files.csv path if not provided
     if args.conflict_files_csv:
         conflict_files_csv_path = Path(args.conflict_files_csv)
@@ -178,111 +180,131 @@ def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None
             if path.exists():
                 conflict_files_csv_path = path
                 break
-    
+
     if not conflict_files_csv_path or not conflict_files_csv_path.exists():
-        logger.warning("Could not find conflict_files.csv - repository summary will not include repository names")
+        logger.warning(
+            "Could not find conflict_files.csv - repository summary will not include repository names"
+        )
         # Create a basic summary without repository mapping
         create_basic_repository_summary(df, args)
         return
-    
+
     # Load the mapping from merge IDs to repositories
     conflict_files_df = load_conflict_files_mapping(conflict_files_csv_path)
     if conflict_files_df.empty:
         logger.warning("conflict_files.csv is empty - creating basic summary")
         create_basic_repository_summary(df, args)
         return
-    
+
     # Extract merge IDs from conflict IDs and map to repositories
-    df['merge_id'] = df['conflict_id'].apply(extract_merge_id_from_conflict_id)
-    
+    df["merge_id"] = df["conflict_id"].apply(extract_merge_id_from_conflict_id)
+
     # Debug: Show what merge IDs we extracted
-    unique_extracted_merge_ids = df['merge_id'].unique()
-    logger.info(f"Extracted merge IDs from conflict_ids: {sorted(unique_extracted_merge_ids)[:10]}...")
-    
+    unique_extracted_merge_ids = df["merge_id"].unique()
+    logger.info(
+        f"Extracted merge IDs from conflict_ids: {sorted(unique_extracted_merge_ids)[:10]}..."
+    )
+
     # Create mapping from merge_id to repository
     merge_to_repo = {}
     available_merge_indices = []
-    
+
     for _, row in conflict_files_df.iterrows():
-        merge_idx = row.get('merge_idx', row.name)
-        repository = row['repository']
+        merge_idx = row.get("merge_idx", row.name)
+        repository = row["repository"]
         merge_to_repo[str(merge_idx)] = repository
         available_merge_indices.append(str(merge_idx))
-    
+
     # Debug: Show what merge indices are available in conflict_files.csv
-    logger.info(f"Available merge indices in conflict_files.csv: {sorted(available_merge_indices)}")
-    
+    logger.info(
+        f"Available merge indices in conflict_files.csv: {sorted(available_merge_indices)}"
+    )
+
     # Check for overlap
     extracted_set = set(unique_extracted_merge_ids)
     available_set = set(available_merge_indices)
     overlap = extracted_set.intersection(available_set)
     logger.info(f"Overlap between extracted and available merge IDs: {sorted(overlap)}")
-    
+
     if not overlap:
         logger.warning("No overlap found between conflict IDs and merge indices!")
-        logger.warning("This suggests the conflict_metrics.csv and conflict_files.csv are from different processing runs")
-        logger.warning("Sample conflict_id format: " + str(df['conflict_id'].iloc[0]) if len(df) > 0 else "No conflicts")
-        logger.warning("Sample merge_idx format: " + str(available_merge_indices[0]) if available_merge_indices else "No merge indices")
-    
+        logger.warning(
+            "This suggests the conflict_metrics.csv and conflict_files.csv are from different processing runs"
+        )
+        logger.warning(
+            "Sample conflict_id format: " + str(df["conflict_id"].iloc[0])
+            if len(df) > 0
+            else "No conflicts"
+        )
+        logger.warning(
+            "Sample merge_idx format: " + str(available_merge_indices[0])
+            if available_merge_indices
+            else "No merge indices"
+        )
+
     # Map repositories to conflict data
-    df['repository'] = df['merge_id'].map(merge_to_repo)
-    
+    df["repository"] = df["merge_id"].map(merge_to_repo)
+
     # Group by repository and create summary
     repo_summary = []
-    
+
     # Debug: Check what repositories we found
-    unique_repos = df['repository'].value_counts()
+    unique_repos = df["repository"].value_counts()
     logger.info(f"Found repositories: {unique_repos.to_dict()}")
-    
-    for repo, repo_df in df.groupby('repository'):
+
+    for repo, repo_df in df.groupby("repository"):
         if pd.isna(repo):
             repo = "UNKNOWN"
-        
+
         total_conflicts = len(repo_df)
-        selected_conflicts = repo_df['selected'].sum()
-        failed_max_lines = repo_df['fail_max_lines'].sum()
-        failed_token_count = repo_df['fail_token_count'].sum()
-        failed_incoherent = repo_df['fail_incoherent'].sum()
-        
-        repo_summary.append({
-            'repository': repo,
-            'total_conflicts': total_conflicts,
-            'selected_conflicts': selected_conflicts,
-            'filtered_out_conflicts': total_conflicts - selected_conflicts,
-            'failed_max_lines': failed_max_lines,
-            'failed_token_count': failed_token_count,
-            'failed_incoherent': failed_incoherent,
-            'selection_rate': selected_conflicts / total_conflicts if total_conflicts > 0 else 0.0
-        })
-    
+        selected_conflicts = repo_df["selected"].sum()
+        failed_max_lines = repo_df["fail_max_lines"].sum()
+        failed_token_count = repo_df["fail_token_count"].sum()
+        failed_incoherent = repo_df["fail_incoherent"].sum()
+
+        repo_summary.append(
+            {
+                "repository": repo,
+                "total_conflicts": total_conflicts,
+                "selected_conflicts": selected_conflicts,
+                "filtered_out_conflicts": total_conflicts - selected_conflicts,
+                "failed_max_lines": failed_max_lines,
+                "failed_token_count": failed_token_count,
+                "failed_incoherent": failed_incoherent,
+                "selection_rate": selected_conflicts / total_conflicts
+                if total_conflicts > 0
+                else 0.0,
+            }
+        )
+
     # Check if we have any repository data
     if not repo_summary:
         logger.warning("No repository data found - falling back to basic summary")
         create_basic_repository_summary(df, args)
         return
-    
+
     # Create summary DataFrame and save
     summary_df = pd.DataFrame(repo_summary)
-    
+
     # Only sort if we have the column
-    if 'selected_conflicts' in summary_df.columns:
-        summary_df = summary_df.sort_values('selected_conflicts', ascending=False)
+    if "selected_conflicts" in summary_df.columns:
+        summary_df = summary_df.sort_values("selected_conflicts", ascending=False)
     else:
         logger.warning("selected_conflicts column not found in summary DataFrame")
-    
+
     # Auto-generate output path if not provided
     if args.repository_summary_csv:
         summary_output_path = Path(args.repository_summary_csv)
     else:
         summary_output_path = Path(args.csv_out).parent / "repository_summary.csv"
-    
+
     summary_df.to_csv(summary_output_path, index=False, encoding="utf-8")
-    
+
     # Log summary statistics
     total_repos = len(summary_df)
-    repos_with_conflicts = len(summary_df[summary_df['selected_conflicts'] > 0])
-    total_selected = summary_df['selected_conflicts'].sum()
-    
+    repos_with_conflicts = len(summary_df[summary_df["selected_conflicts"] > 0])
+    total_selected = summary_df["selected_conflicts"].sum()
+
     logger.info(f"Repository summary written to {summary_output_path}")
     logger.info(f"Total repositories with conflicts: {total_repos}")
     logger.info(f"Repositories contributing to final dataset: {repos_with_conflicts}")
@@ -292,23 +314,27 @@ def generate_repository_summary(df: pd.DataFrame, args, input_dir: Path) -> None
 def create_basic_repository_summary(df: pd.DataFrame, args) -> None:
     """Create a basic summary without repository mapping."""
     total_conflicts = len(df)
-    selected_conflicts = df['selected'].sum()
-    
-    basic_summary = [{
-        'repository': 'ALL_REPOSITORIES',
-        'total_conflicts': total_conflicts,
-        'selected_conflicts': selected_conflicts,
-        'filtered_out_conflicts': total_conflicts - selected_conflicts,
-        'failed_max_lines': df['fail_max_lines'].sum(),
-        'failed_token_count': df['fail_token_count'].sum(),
-        'failed_incoherent': df['fail_incoherent'].sum(),
-        'selection_rate': selected_conflicts / total_conflicts if total_conflicts > 0 else 0.0
-    }]
-    
+    selected_conflicts = df["selected"].sum()
+
+    basic_summary = [
+        {
+            "repository": "ALL_REPOSITORIES",
+            "total_conflicts": total_conflicts,
+            "selected_conflicts": selected_conflicts,
+            "filtered_out_conflicts": total_conflicts - selected_conflicts,
+            "failed_max_lines": df["fail_max_lines"].sum(),
+            "failed_token_count": df["fail_token_count"].sum(),
+            "failed_incoherent": df["fail_incoherent"].sum(),
+            "selection_rate": selected_conflicts / total_conflicts
+            if total_conflicts > 0
+            else 0.0,
+        }
+    ]
+
     summary_df = pd.DataFrame(basic_summary)
     summary_output_path = Path(args.csv_out).parent / "repository_summary.csv"
     summary_df.to_csv(summary_output_path, index=False, encoding="utf-8")
-    
+
     logger.info(f"Basic repository summary written to {summary_output_path}")
 
 

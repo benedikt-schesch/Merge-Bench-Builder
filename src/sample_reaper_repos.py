@@ -27,7 +27,9 @@ def filter_top_n_repos(input_path, start_index, n, language):
     df_top_n = df_sorted.iloc[start_index : start_index + n]
 
     # Output file name
-    output_path = f"input_data/repos_reaper_{language}_{start_index}_{start_index + n}.csv"
+    output_path = (
+        f"input_data/repos_reaper_{language}_{start_index}_{start_index + n}.csv"
+    )
 
     # Save to new CSV file
     df_top_n.to_csv(output_path, index=False)

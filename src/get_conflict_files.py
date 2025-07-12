@@ -236,11 +236,15 @@ def collect_merges(
     except Exception as e:
         logger.error(f"Error getting repo {repo_slug}: {e}")
         return pd.DataFrame()
-    merges = get_merges(repo, repo_slug, output_dir / "merges", max_num_merges, max_branches)
+    merges = get_merges(
+        repo, repo_slug, output_dir / "merges", max_num_merges, max_branches
+    )
     return merges
 
 
-def process_merge(merge_row, output_dir: Path, file_extensions: List[str] = [".java"]) -> tuple:
+def process_merge(
+    merge_row, output_dir: Path, file_extensions: List[str] = [".java"]
+) -> tuple:
     """
     Step 2: Process a single merge to extract conflict files.
     """
@@ -300,17 +304,23 @@ def clone_all_repositories(repos_df: pd.DataFrame, num_workers: int) -> None:
     Step 0: Clone all repositories in parallel with progress bar.
     This ensures all repositories are available locally before processing begins.
     """
-    logger.info(f"Step 0: Cloning {len(repos_df)} repositories using {num_workers} threads...")
-    
+    logger.info(
+        f"Step 0: Cloning {len(repos_df)} repositories using {num_workers} threads..."
+    )
+
     repo_slugs = repos_df["repository"].tolist()
-    
+
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Submit all cloning tasks
-        futures = {executor.submit(clone_single_repository, repo_slug): repo_slug 
-                  for repo_slug in repo_slugs}
-        
+        futures = {
+            executor.submit(clone_single_repository, repo_slug): repo_slug
+            for repo_slug in repo_slugs
+        }
+
         # Process results with progress bar
-        for future in tqdm(as_completed(futures), total=len(repo_slugs), desc="Cloning repos"):
+        for future in tqdm(
+            as_completed(futures), total=len(repo_slugs), desc="Cloning repos"
+        ):
             result = future.result()
             if result.startswith("FAILED:"):
                 logger.warning(f"Cloning failed for {result[7:]}")
@@ -352,7 +362,19 @@ def main():
         "--language",
         type=str,
         default="java",
-        choices=["java", "python", "javascript", "typescript", "cpp", "csharp", "php", "ruby", "c", "go", "rust"],
+        choices=[
+            "java",
+            "python",
+            "javascript",
+            "typescript",
+            "cpp",
+            "csharp",
+            "php",
+            "ruby",
+            "c",
+            "go",
+            "rust",
+        ],
         help="Programming language to filter conflict files (default: java)",
     )
     parser.add_argument(
@@ -386,7 +408,11 @@ def main():
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         tasks = {
             executor.submit(
-                collect_merges, row["repository"], output_dir, args.max_num_merges, args.max_branches
+                collect_merges,
+                row["repository"],
+                output_dir,
+                args.max_num_merges,
+                args.max_branches,
             ): i
             for i, (_, row) in enumerate(repos_df.iterrows())
         }
@@ -395,7 +421,9 @@ def main():
         futures_by_index = sorted([(index, future) for future, index in tasks.items()])
         ordered_futures = [f for _, f in futures_by_index]
 
-        for future in tqdm(as_completed(tasks), total=len(repos_df), desc="Collecting merges"):
+        for future in tqdm(
+            as_completed(tasks), total=len(repos_df), desc="Collecting merges"
+        ):
             result.append(future.result())
 
     # Combine all merge CSVs
@@ -427,7 +455,9 @@ def main():
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         futures_dict = {
-            executor.submit(process_merge, merge_row, output_dir, file_extensions): merge_id
+            executor.submit(
+                process_merge, merge_row, output_dir, file_extensions
+            ): merge_id
             for merge_id, merge_row in all_merges_df.iterrows()
         }
 
