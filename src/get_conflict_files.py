@@ -147,7 +147,7 @@ def reproduce_merge_and_extract_conflicts(
     merge_id: int,
     conflict_cache_folder: Path,
     resolved_merge_cache_folder: Path,
-    file_extensions: List[str] = [".java"],
+    file_extensions: List[str] = None,
 ) -> List[str]:
     """
     Checkout left_sha, merge right_sha.
@@ -157,6 +157,8 @@ def reproduce_merge_and_extract_conflicts(
     If the cache already exists, the cached files are simply copied over.
     Returns the list of conflict IDs for this merge.
     """
+    if file_extensions is None:
+        file_extensions = [".java"]
     # Check if cache exists (both subdirectories must be present)
     if conflict_cache_folder.exists() and resolved_merge_cache_folder.exists():
         cached_conflict_files = sorted(conflict_cache_folder.iterdir())
@@ -243,11 +245,13 @@ def collect_merges(
 
 
 def process_merge(
-    merge_row, output_dir: Path, file_extensions: List[str] = [".java"]
+    merge_row, output_dir: Path, file_extensions: List[str] = None
 ) -> tuple:
     """
     Step 2: Process a single merge to extract conflict files.
     """
+    if file_extensions is None:
+        file_extensions = [".java"]
     merge_id = merge_row.name
     repo_slug = merge_row["repository"]
     cache_folder = Path("merge_cache/conflicts") / repo_slug / merge_row["merge_commit"]
@@ -327,7 +331,7 @@ def clone_all_repositories(repos_df: pd.DataFrame, num_workers: int) -> None:
 
 
 def main():
-    """Main function with three steps: clone repositories, collect merges, then extract conflict files."""
+    """Main function: clone repositories, collect merges, then extract conflict files."""
     parser = argparse.ArgumentParser(description="Extract conflict files from merges.")
     parser.add_argument(
         "--repos",

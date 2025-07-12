@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
-[![CI/CD](https://github.com/scheschb/Merge-Bench-Builder/workflows/CI/badge.svg)](https://github.com/your-username/Merge-Bench-Builder/actions)
+[![CI](https://github.com/benedikt-schesch/Merge-Bench-Builder/actions/workflows/ci.yml/badge.svg)](https://github.com/benedikt-schesch/Merge-Bench-Builder/actions/workflows/ci.yml)
 
 A toolkit for constructing merge conflict datasets from Git repositories. This tool helps researchers and developers build comprehensive datasets for studying merge conflict resolution patterns. 🛠️
 
