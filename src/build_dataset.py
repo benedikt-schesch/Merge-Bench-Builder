@@ -11,7 +11,7 @@ from datasets import Dataset, DatasetDict
 from tqdm import tqdm
 from loguru import logger
 import torch
-from variables import SYSTEM_PROMPT, QUERY_PROMPT
+from variables import QUERY_PROMPT
 
 logger.add("run.log", backtrace=True, diagnose=True)
 
@@ -45,7 +45,6 @@ def format_conversation(
     """Formats the conversation for the chatbot model."""
     return {
         "prompt": [
-            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": example["question"]},
         ],
         "answer": example["answer"],
