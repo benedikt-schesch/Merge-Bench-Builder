@@ -5,6 +5,12 @@
 echo "Starting to build all datasets..."
 echo "================================"
 
+# Arrays to store results for final summary
+declare -a LANGUAGES=()
+declare -a TEST_SIZES=()
+declare -a REPO_COUNTS=()
+declare -a BUILD_STATUS=()
+
 # Function to run a dataset build script and extract the test set size and repository count
 run_dataset_build() {
     local script_name=$1
@@ -24,6 +30,16 @@ run_dataset_build() {
 
     # Extract repository count
     repo_count=$(echo "$output" | grep -o "Repositories contributing to final dataset: [0-9]*" | grep -o "[0-9]*")
+
+    # Store results for summary
+    LANGUAGES+=("$language_name")
+    TEST_SIZES+=("${test_size:-N/A}")
+    REPO_COUNTS+=("${repo_count:-N/A}")
+    if [ $exit_code -eq 0 ]; then
+        BUILD_STATUS+=("✓")
+    else
+        BUILD_STATUS+=("✗")
+    fi
 
     # Display summary with both metrics
     if [ -n "$test_size" ] && [ -n "$repo_count" ]; then
@@ -78,5 +94,44 @@ run_dataset_build "build_dataset_rust.sh" "Rust"
 # ./dataset_build_scripts/build_dataset_reaper_java_1000_1200.sh
 
 echo "================================"
+echo "FINAL SUMMARY"
+echo "================================"
+
+# Display summary table
+printf "%-12s %-8s %-12s %-12s\n" "Language" "Status" "Test Size" "Unique Repos"
+printf "%-12s %-8s %-12s %-12s\n" "--------" "------" "---------" "------------"
+
+# Calculate totals
+total_test_size=0
+total_unique_repos=0
+successful_builds=0
+
+for i in "${!LANGUAGES[@]}"; do
+    language="${LANGUAGES[i]}"
+    status="${BUILD_STATUS[i]}"
+    test_size="${TEST_SIZES[i]}"
+    repo_count="${REPO_COUNTS[i]}"
+
+    printf "%-12s %-8s %-12s %-12s\n" "$language" "$status" "$test_size" "$repo_count"
+
+    # Add to totals if values are numbers
+    if [[ "$test_size" =~ ^[0-9]+$ ]]; then
+        total_test_size=$((total_test_size + test_size))
+    fi
+    if [[ "$repo_count" =~ ^[0-9]+$ ]]; then
+        total_unique_repos=$((total_unique_repos + repo_count))
+    fi
+    if [[ "$status" == "✓" ]]; then
+        successful_builds=$((successful_builds + 1))
+    fi
+done
+
+echo ""
+echo "TOTALS:"
+echo "- Successful builds: $successful_builds/${#LANGUAGES[@]}"
+echo "- Total test set size: $total_test_size"
+echo "- Total unique repositories: $total_unique_repos"
+
+echo ""
 echo "All datasets build process completed!"
 echo "Check individual logs for any errors."
