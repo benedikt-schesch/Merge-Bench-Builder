@@ -2,7 +2,14 @@
 # Main script to build all datasets
 # This script runs all individual dataset build scripts
 
-echo "Starting to build all datasets..."
+# Accept command line arguments, default to "-g -m -b" if none provided
+if [ $# -eq 0 ]; then
+    args="-g -m -b"
+else
+    args="$@"
+fi
+
+echo "Starting to build all datasets with arguments: $args"
 echo "================================"
 
 # Arrays to store results for final summary
@@ -18,8 +25,8 @@ run_dataset_build() {
 
     echo "Building $language_name dataset..."
 
-    # Capture the output and run the script
-    output=$(./dataset_build_scripts/$script_name 2>&1)
+    # Capture the output and run the script with arguments
+    output=$(./dataset_build_scripts/$script_name $args 2>&1)
     exit_code=$?
 
     # Display the output

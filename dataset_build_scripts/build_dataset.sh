@@ -118,5 +118,6 @@ if [ $RUN_BUILD -eq 1 ]; then
     python3 src/build_dataset.py \
         --conflict_blocks_dir "$OUT_DIR/filtered_dataset" \
         --output_dir "$OUT_DIR/dataset" \
-        --test_size "$TEST_SIZE"
+        --test_size "$TEST_SIZE" \
+        --language "$LANGUAGE"
 fi

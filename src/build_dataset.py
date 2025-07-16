@@ -16,12 +16,12 @@ from variables import QUERY_PROMPT
 logger.add("run.log", backtrace=True, diagnose=True)
 
 
-def build_query(query: str) -> str:
+def build_query(query: str, language: str = "java") -> str:
     """Builds a query from the given conflict block."""
-    return f"{QUERY_PROMPT}```java\n{query}\n```"
+    return f"{QUERY_PROMPT}```{language}\n{query}\n```"
 
 
-def load_conflict_dataset(directory: str) -> Dataset:
+def load_conflict_dataset(directory: str, language: str = "java") -> Dataset:
     """Loads the conflict dataset from the given directory."""
     # Sort by name deterministically to ensure reproducible dataset creation
     conflict_files = sorted(Path(directory).glob("*.conflict"))
@@ -31,7 +31,7 @@ def load_conflict_dataset(directory: str) -> Dataset:
         resolved_file = conflict_file.with_name(
             conflict_file.stem + ".resolved_conflict"
         )
-        queries.append(build_query(conflict_file.read_text(encoding="utf-8")))
+        queries.append(build_query(conflict_file.read_text(encoding="utf-8"), language))
         solutions.append(resolved_file.read_text(encoding="utf-8"))
 
     if not queries:
@@ -52,10 +52,10 @@ def format_conversation(
 
 
 def prepare_dataset(
-    directory: str, test_size: float = 0.2, seed: int = 42
+    directory: str, test_size: float = 0.2, seed: int = 42, language: str = "java"
 ) -> DatasetDict:
     """Prepare the dataset for training and testing."""
-    dataset = load_conflict_dataset(directory)
+    dataset = load_conflict_dataset(directory, language)
 
     # Handle edge cases for test_size 0 or 1
     if not test_size:
@@ -91,6 +91,12 @@ def main():
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility"
     )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="java",
+        help="Programming language for syntax highlighting",
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -99,7 +105,9 @@ def main():
         torch.cuda.manual_seed_all(args.seed)
     torch.manual_seed(args.seed)
 
-    dataset = prepare_dataset(args.conflict_blocks_dir, args.test_size, args.seed)
+    dataset = prepare_dataset(
+        args.conflict_blocks_dir, args.test_size, args.seed, args.language
+    )
     logger.info(f"Train set size: {len(dataset['train'])}")
     logger.info(f"Test set size: {len(dataset['test'])}")
 
