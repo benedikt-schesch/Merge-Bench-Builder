@@ -93,12 +93,11 @@ run_dataset_build "build_dataset_go.sh" "Go"
 # Rust dataset
 run_dataset_build "build_dataset_rust.sh" "Rust"
 
-# Java datasets (We ran those before the others)
 # echo "Building Reaper Java 1000 dataset..."
-# ./dataset_build_scripts/build_dataset_reaper_java_1000.sh
+run_dataset_build "build_dataset_reaper_java" "Java"
 
 # echo "Building Reaper Java 1000-1200 dataset..."
-# ./dataset_build_scripts/build_dataset_reaper_java_1000_1200.sh
+run_dataset_build "build_dataset_reaper_java_train" "Java Train"
 
 echo "================================"
 echo "FINAL SUMMARY"
