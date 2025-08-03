@@ -63,41 +63,41 @@ run_dataset_build() {
     return $exit_code
 }
 
-# C dataset
-run_dataset_build "build_dataset_c.sh" "C"
+# # C dataset
+# run_dataset_build "build_dataset_c.sh" "C"
 
-# C++ dataset
-run_dataset_build "build_dataset_cpp.sh" "C++"
+# # C++ dataset
+# run_dataset_build "build_dataset_cpp.sh" "C++"
 
 # C# dataset
 run_dataset_build "build_dataset_csharp.sh" "C#"
 
-# Python dataset
-run_dataset_build "build_dataset_python.sh" "Python"
+# # Python dataset
+# run_dataset_build "build_dataset_python.sh" "Python"
 
-# Ruby dataset
-run_dataset_build "build_dataset_ruby.sh" "Ruby"
+# # Ruby dataset
+# run_dataset_build "build_dataset_ruby.sh" "Ruby"
 
-# PHP dataset
-run_dataset_build "build_dataset_php.sh" "PHP"
+# # PHP dataset
+# run_dataset_build "build_dataset_php.sh" "PHP"
 
-# JavaScript datasets (both use GitHub data)
-run_dataset_build "build_dataset_javascript.sh" "JavaScript"
+# # JavaScript datasets (both use GitHub data)
+# run_dataset_build "build_dataset_javascript.sh" "JavaScript"
 
-# TypeScript dataset
-run_dataset_build "build_dataset_typescript.sh" "TypeScript"
+# # TypeScript dataset
+# run_dataset_build "build_dataset_typescript.sh" "TypeScript"
 
-# Go datasets (both use GitHub data)
-run_dataset_build "build_dataset_go.sh" "Go"
+# # Go datasets (both use GitHub data)
+# run_dataset_build "build_dataset_go.sh" "Go"
 
-# Rust dataset
-run_dataset_build "build_dataset_rust.sh" "Rust"
+# # Rust dataset
+# run_dataset_build "build_dataset_rust.sh" "Rust"
 
-# echo "Building Reaper Java 1000 dataset..."
-run_dataset_build "build_dataset_reaper_java" "Java"
+# # echo "Building Reaper Java 1000 dataset..."
+# run_dataset_build "build_dataset_reaper_java" "Java"
 
-# echo "Building Reaper Java 1000-1200 dataset..."
-run_dataset_build "build_dataset_reaper_java_train" "Java Train"
+# # echo "Building Reaper Java 1000-1200 dataset..."
+# run_dataset_build "build_dataset_reaper_java_train" "Java Train"
 
 echo "================================"
 echo "FINAL SUMMARY"
