@@ -6,6 +6,13 @@
 
 A toolkit for constructing merge conflict datasets from Git repositories. This tool helps researchers and developers build comprehensive datasets for studying merge conflict resolution patterns. 🛠️
 
+## Dataset Availability
+
+The pre-built Merge-Bench dataset is publicly available at:
+https://github.com/benedikt-schesch/Merge-Bench/releases/tag/main
+
+This includes merge conflicts from 11 programming languages across 1000+ repositories.
+
 ## Table of Contents
 
 - [Features ✨](#features)
